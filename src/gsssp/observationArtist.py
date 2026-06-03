@@ -1,3 +1,4 @@
+import math
 from numbers import Number
 import random
 from numpy.typing import NDArray
@@ -529,3 +530,246 @@ def planck_like(l, T=0.5):
         _type_: Vector de intensidades.
     """
     return 1 / (l**5 * (np.exp(1/(l*T)) - 1))
+
+class ComponentLimit:
+    """Clase que representa los limites de una componente de la observacion (lampara 1, lampara 2 o espectro de ciencia).
+    """
+    def __init__(self, type: str, angle: int, alto: int, ancho: int, x_center: int, y_center: int, x1: int, y1: int, x2: int, y2: int, x3: int, y3: int, x4: int, y4: int):
+        self.type = type
+        self.angle = angle
+        self.alto = alto
+        self.ancho = ancho
+        self.x_center = x_center
+        self.y_center = y_center
+        self.x1 = x1
+        self.y1 = y1
+        self.x2 = x2
+        self.y2 = y2
+        self.x3 = x3
+        self.y3 = y3
+        self.x4 = x4
+        self.y4 = y4
+
+class ObservationLimit:
+    """Clase que representa los limites de una observacion dentro de una imagen.
+    """
+    def __init__(self, angle: int, alto: int, ancho: int, x_center: int, y_center: int, x1: int, y1: int, x2: int, y2: int, x3: int, y3: int, x4: int, y4: int):
+        self.angle = angle
+        self.alto = alto
+        self.ancho = ancho
+        self.x_center = x_center
+        self.y_center = y_center
+        self.x1 = x1
+        self.y1 = y1
+        self.x2 = x2
+        self.y2 = y2
+        self.x3 = x3
+        self.y3 = y3
+        self.x4 = x4
+        self.y4 = y4
+        self.science = None
+        self.lamps = None
+    
+    def define_components_limits(self):
+        """Define los limites de cada componente de la observacion (lampara 1, lampara 2 y espectro de ciencia) 
+        en base a los limites generales de la observacion.
+        """
+        self.science = None
+        self.lamps
+        pass
+        
+    def __str__(self):
+        return (
+            f"ObservationLimit("
+            f"angle={self.angle}, "
+            f"alto={self.alto}, "
+            f"ancho={self.ancho}, "
+            f"x_center={self.x_center}, "
+            f"y_center={self.y_center}, "
+            f"x1={self.x1}, "
+            f"y1={self.y1}, "
+            f"x2={self.x2}, "
+            f"y2={self.y2}, "
+            f"x3={self.x3}, "
+            f"y3={self.y3}, "
+            f"x4={self.x4}, "
+            f"y4={self.y4}, "
+            f"science={len(self.science) if self.science else None}, "
+            f"lamps={len(self.lamps) if self.lamps else None}"
+        )
+        
+    __repr__ = __str__
+        
+def define_observation_components_limits(observation):
+    pass
+    
+def define_observations_limits(alto, ancho, rng, min_heigth=0.03, min_width=0.1):
+    """Define una lista de detalles de observaciones que entran en una imagen en base al alto y ancho de un canvas.
+
+    Args:
+        alto (int): alto de la imagen.
+        ancho (int): ancho de la imagen.
+        rng (np.random.Generator): generador de numeros aleatorios.
+        min_heigth (number, optional): altura minima de las observaciones. Expresado como porcentaje. Si no se especifica se calcula como el 10% del alto.
+        min_width (number, optional): ancho minimo de las observaciones. Expresado como porcentaje. Si no se especifica se calcula como el 10% del ancho.
+    """
+    
+    angle_base = rng.uniform(-15, 15)
+    source_y = 0
+    alto_disponible = alto
+    ancho_disponible = ancho
+    min_heigth_px = min_heigth * alto
+    min_width_px = min_width * ancho
+    
+    observations_limits = []
+    random_iter = 0
+    while (alto_disponible > 0 and random_iter < 0.5 and alto_disponible <= alto):
+        angle = angle_base + rng.integers(-3, 3)
+        angle_rad = math.radians(angle)
+        angle_cos = math.cos(angle_rad)
+        angle_sin = math.sin(angle_rad)
+        # Centro en x de la observacion
+        coor_x = rng.integers(0.25*ancho_disponible, 0.75*ancho_disponible)
+        # Ancho de la observacion
+        diff_extremos = min(coor_x, ancho_disponible - coor_x)
+        if(min_width_px > diff_extremos):
+            break
+        ancho_general = rng.integers(min_width_px, diff_extremos) * 2
+        # Ancho de la observacion rotada (solo linea)
+        ancho_obs = angle_cos * ancho_general
+        # Alto de la observacion rotada (solo linea)
+        alto_obs = abs(angle_sin * ancho_general)
+        if(alto_obs > alto_disponible):
+            break
+        # Centro en y de la observacion
+        low = math.ceil(alto_disponible * 0.025 + alto_obs / 2)
+        high = math.floor(alto_disponible * 0.975 - alto_obs / 2)
+        if low >= high:
+            break
+        coor_y = rng.integers(low, high)
+        # Diferencia vertical entre el extremo central derecho de la observacion y su pico superior derecho
+        min_heigth_px_vertical = angle_cos * min_heigth_px
+        dif_extremo_disp_y = min(coor_y - alto_obs/2, alto_disponible - (coor_y + alto_obs/2))
+        if(min_heigth_px_vertical > dif_extremo_disp_y):
+            break
+        dif_extremo_disp_y = rng.uniform(
+            min_heigth_px_vertical/2, 
+            dif_extremo_disp_y
+        )
+        print("Low:", min_heigth_px_vertical, "High:", dif_extremo_disp_y)
+        # Alto de la observacion sin rotar
+        apertura = (dif_extremo_disp_y / angle_cos) * 2
+        # Pendientes de los ejes de la observacion        
+        ux = angle_cos
+        uy = angle_sin
+        vx = -angle_sin
+        vy =  angle_cos
+        # Precomputo
+        half_len = ancho_general / 2
+        half_wid = apertura / 2
+        
+        # Especificar la observacion con sus limites
+        new_observation = ObservationLimit(
+                angle=angle,
+                alto=apertura,
+                ancho=ancho_general,
+                x_center=coor_x,
+                y_center=source_y+coor_y,
+                x1=coor_x - ux*half_len - vx*half_wid,
+                y1=coor_y - uy*half_len - vy*half_wid + source_y,
+                x2=coor_x + ux*half_len - vx*half_wid,
+                y2=coor_y + uy*half_len - vy*half_wid + source_y,
+                x3=coor_x + ux*half_len + vx*half_wid,
+                y3=coor_y + uy*half_len + vy*half_wid + source_y,
+                x4=coor_x - ux*half_len + vx*half_wid,
+                y4=coor_y - uy*half_len + vy*half_wid + source_y
+            )
+        observations_limits.append(new_observation)
+        
+        # Minimos y maximos de la observacion para definir el espacio disponible
+        obs_min_y = min(new_observation.y1, new_observation.y2, new_observation.y3, new_observation.y4) - source_y
+        obs_max_y = max(new_observation.y1, new_observation.y2, new_observation.y3, new_observation.y4) - source_y
+        
+        # Calcular el espacio superior e inferior a la observacion para definir donde se ubica la fuente y el espacio disponible para la siguiente observacion
+        espacio_superior = obs_min_y
+        espacio_inferior = alto_disponible - obs_max_y
+        if(espacio_superior > espacio_inferior):
+            # El espacio superior es mayor, solo se ajusta el alto disponible y se mantiene la fuente en el mismo lugar
+            alto_disponible = obs_min_y
+        else:
+            # El espacio inferior es mayor, se mueve la fuente hacia abajo y se ajusta el alto disponible
+            source_y = source_y + obs_max_y
+            alto_disponible = alto_disponible - obs_max_y
+            
+        random_iter = rng.random()
+    
+    # print("Random final para definir observaciones:", random_iter)
+    # print("Alto disponible luego de definir observaciones:", alto_disponible)
+    # print(f"Se generaron {len(observations_limits)} observaciones con los siguientes limites:")
+    return observations_limits
+
+def visualize_observations(
+    observations,
+    img_width=800,
+    img_height=600,
+    output_path="observation_debug.png"
+):
+    img = np.zeros((img_height, img_width, 3), dtype=np.uint8)
+
+    for obs in observations:
+        # Centro
+        cx = int(obs.x_center)
+        cy = int(obs.y_center)
+        center = (cx, cy)
+        cv2.circle(img, center, 5, (0, 0, 255), -1)
+
+        angle_rad = math.radians(obs.angle)
+
+        # Eje de ancho
+        dx = math.cos(angle_rad) * obs.ancho / 2
+        dy = math.sin(angle_rad) * obs.ancho / 2
+
+        width_start = (int(cx - dx), int(cy - dy))
+        width_end   = (int(cx + dx), int(cy + dy))
+
+        # Eje de alto (perpendicular)
+        px = -math.sin(angle_rad) * obs.alto / 2
+        py =  math.cos(angle_rad) * obs.alto / 2
+
+        height_start = (int(cx - px), int(cy - py))
+        height_end   = (int(cx + px), int(cy + py))
+
+        # Dibujar ejes
+        cv2.line(img, width_start, width_end, (0, 255, 0), 2)   # ancho = verde
+        cv2.line(img, height_start, height_end, (255, 0, 0), 2) # alto = azul
+
+        # Esquinas
+        p1 = (int(obs.x1), int(obs.y1))
+        p2 = (int(obs.x2), int(obs.y2))
+        p3 = (int(obs.x3), int(obs.y3))
+        p4 = (int(obs.x4), int(obs.y4))
+
+        # Dibujar cada esquina con un color distinto
+        cv2.circle(img, p1, 6, (255, 0, 0), -1)     # Azul
+        cv2.circle(img, p2, 6, (0, 255, 0), -1)     # Verde
+        cv2.circle(img, p3, 6, (0, 255, 255), -1)   # Amarillo
+        cv2.circle(img, p4, 6, (255, 0, 255), -1)   # Magenta
+
+        # Etiquetas
+        cv2.putText(img, "P1", p1, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+        cv2.putText(img, "P2", p2, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        cv2.putText(img, "P3", p3, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+        cv2.putText(img, "P4", p4, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 1)
+
+        # Contorno del OBB
+        pts = np.array([p1, p2, p3, p4], dtype=np.int32)
+        cv2.polylines(
+            img,
+            [pts],
+            isClosed=True,
+            color=(255, 255, 255),
+            thickness=2
+        )
+
+    cv2.imwrite(output_path, img)
+    print(f"Imagen guardada en: {output_path}")

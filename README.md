@@ -11,13 +11,27 @@ De cada imagen generada se provee tanto la imagen como la información de los el
 ![Imagen sintética de un escaneo de una placa espectroscópica con 4 observaciones. En azul los limites que delimitan la posición de cada una de las observaciones generadas.](assets/exampleGeneration2.jpg)
 
 ## Formato de etiquetas
+
+El generador produce los siguientes formatos de etiquetas
+
+|Formato    |Anatomia                                           |Descripcion    |
+|:---------:|:-------------------------------------------------:|:--------------|
+|YOLO       |`<class> <x> <y> <w> <h>`                          |`class` toma valor entero respecto al indice de la clase del *Bounding Box*. Los demas toman valores porcentuales [0-1]. `x` e `y` las cordenadas del centro de la observacion. E `w` y `h` son el ancho y alto respectivamente. |
+|OBB        |`<class> <x1> <y1> <x2> <y2> <x3> <y3> <x4> <y4>`  |`class` toma valor entero respecto al indice de la clase del *Bounding Box*. Los demas toman valores porcentuales [0-1]. `x1`, `y1`, `x2`, `y2`, `x3`, `y3`, `x4` e `y4` corresponden a las coordenadas de cada esquina de la caja delimitadora.   |
+
 Las etiquetas producidas por el generador están en formato YOLO. En esquema *rel_xywh*, osea 5 datos, el primero entero, los demás floats normalizados como valores entre 0 y 1:
 
-```
-<class_id> <x_center> <y_center> <width> <height>
-```
+# Tipos de etiquetas
 
-`<class_id>` representa la clase etiquetada respecto al total. Ya que aquí solo hay un tipo de objeto su valor siempre es 0. `<x_center>` e ` <y_center>` corresponden a las coordenadas normalizadas del centro de cada bounding box. `<width>` y `<height>` representan las dimensiones ancho y alto respectivamente.
+El generador produce imagenes etiquetadas respecto a distintas clases. El que etiquetas se generan se puede especificar via parametros, a continuacion se muestra un ejemplo de cada caso.
+
+|Clase          |Descripcion                            |Imagen |
+|:-------------:|:--------------------------------------|:-----:|
+|`observacion`  |Observacion espectroscopica.           |![Observacion espectroscopica.](assets/...)|
+|`science`      |Espectro de ciencia.                   |![Espectro de ciencia.](assets/...)|
+|`lamp`         |Espectro de lampara de comparacion.    |![Espectro de lampara de comparacion.](assets/...)|
+
+Cuando se selecciona mas de una clase entonces 
 
 
 # Entorno virtual
@@ -26,31 +40,10 @@ Se recomienda usar *uv* para la administración del entorno virtual.
 
 ## Generar
 
-La carpeta contiene un archivo `main.py` que contiene el código experimental para la generación automática de imágenes de observaciones.
-
-```
-uv run main.py
-```
-
-Cada imagen producida tiene un archivo de etiquetas con información de los límites de la imagen que definen cada observación individual y los espectros de ciencia y/o de lámparas de comparación que haya en la misma.
-
-### Compatible con TensorFlow.
-
 En `generators\spectrumLabeledSequence` se encuentra un generador compatible con la librería TensorFlow. El archivo `generator_use_example.py` muestra un ejemplo de como usarla para generar y almacenar archivos, este puede ser usado como se muestra a continuación. 
 
 ```
 uv run generator_save_images_example.py
 ```
 
-Su propósito es ser usada como alimentador dentro de la función **fit()** de TensorFlow. El archivo `generator_fit_example.py` muestra un ejemplo de como conectarlo con un modelo de detección. Se puede ejecutar con el siguiente comando.
-
-```
-uv run generator_fit_example.py
-```
-
-Los datos generados por la misma siempre son redimensionados a una dimensión objetivo (se puede especificar). No obstante, si se quieren imágenes sin redimensionar la opción anterior es la correcta.
-
-
-## Librería de generación
-
-`observationArtist.py` encapsula funciones útiles para el dibujado de observaciones en archivos.
+Toda la herramienta es **importable como una libreria**.

@@ -1,6 +1,6 @@
 from keras.utils import Sequence
 import numpy as np
-from src.gsssp.observationArtist import Position, add_plate_edge, drawObservation, add_realistic_noise, edges_of_labels_relxywh
+from gsssp.observationArtist import Position, add_plate_edge, define_observations_limits, drawObservation, add_realistic_noise, edges_of_labels_relxywh
 import random
 import numpy as np
 import math
@@ -120,6 +120,9 @@ class SpectrumLabeledSequence(Sequence):
       # Imagen base oscura completa.
       gray_value = np.random.randint(self.gray_value_range[0]*255, self.gray_value_range[1]*255)
       img = np.full((alto, ancho, 3), gray_value, dtype=np.uint8)
+      
+      ### Definir limites de las observaciones ###
+      observations_limits = define_observations_limits(alto, ancho)
 
       ### Observacion ###
       # Ancho de la observacion que varia en relacion al ancho total disponible.
