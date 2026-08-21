@@ -125,12 +125,21 @@ def drawObservation(
     cv2.drawContours(maskObservation, [boxParts["lamp2"]], 0, 255, thickness=cv2.FILLED)
     cv2.drawContours(maskObservation, [boxParts["science"]], 0, 255, thickness=cv2.FILLED)
 
+    # Dominio horizontal de los espectros, en el sistema SIN rotar.
+    # Las partes se dibujan sin inclinacion (la rotacion se aplica recien al final con
+    # warpAffine), asi que el espectro tiene que medirse e indexarse en ese mismo sistema.
+    # Usar el bounding box rotado (labelForGraph) desalinea el desvanecimiento y descarta
+    # picos, y el desvio crece con el angulo.
+    partsX = np.concatenate([boxParts["lamp1"], boxParts["lamp2"], boxParts["science"]])[:,0]
+    partsOriginX = int(partsX.min())
+    partsWidth = int(partsX.max() - partsX.min())
+
     # Pintar espectro de ciencia
     onlyObservation = np.zeros((*img.shape[:2], 3), dtype=np.uint8)
     ys, xs = np.where(maskParts["science"] == 255)
     vertical_noise_level = random.uniform(0,0.05)
     science_function = spectral_function(
-        width=labelForGraph["width"], 
+        width=partsWidth,
         noise_level=255*random.uniform(0, 0.01), 
         n_peaks=random.randint(4, 10),
         baseline=random.randint(max(0, baseGrey-60), baseGrey+15),
@@ -140,13 +149,13 @@ def drawObservation(
         absorption_lines_spread=random.uniform(0, 0.1),
         )
     for xi, yi in zip(xs, ys):
-        intensity = science_function(xi-labelForGraph["x"])
+        intensity = science_function(xi-partsOriginX)
         intensity = max(intensity,baseGrey) # Control de color de fondo
         onlyObservation[yi, xi] = (intensity,intensity,intensity)
 
     # Pintar lampara de comparación 1
     lamp_function = spectral_function(
-        width=labelForGraph["width"], 
+        width=partsWidth,
         noise_level=255*0.01, 
         n_peaks=random.randint(15, 150),
         baseline=random.randint(max(0, baseGrey-60), baseGrey+5),
@@ -156,14 +165,14 @@ def drawObservation(
         )
     ys, xs = np.where(maskParts["lamp1"] == 255)
     for xi, yi in zip(xs, ys):
-        intensity = lamp_function(xi-labelForGraph["x"])
+        intensity = lamp_function(xi-partsOriginX)
         intensity = max(intensity,baseGrey) # Control de color de fondo
         onlyObservation[yi, xi] = (intensity,intensity,intensity)
 
     # Pintar lampara de comparación 2
     ys, xs = np.where(maskParts["lamp2"] == 255)
     for xi, yi in zip(xs, ys):
-        intensity = lamp_function(xi-labelForGraph["x"])
+        intensity = lamp_function(xi-partsOriginX)
         intensity = max(intensity,baseGrey) # Control de color de fondo
         onlyObservation[yi, xi] = (intensity,intensity,intensity)
 
