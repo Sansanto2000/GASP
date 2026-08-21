@@ -656,7 +656,6 @@ def define_observations_limits(alto, ancho, rng, min_heigth=0.03, min_width=0.1)
             min_heigth_px_vertical/2, 
             dif_extremo_disp_y
         )
-        print("Low:", min_heigth_px_vertical, "High:", dif_extremo_disp_y)
         # Alto de la observacion sin rotar
         apertura = (dif_extremo_disp_y / angle_cos) * 2
         # Pendientes de los ejes de la observacion        
