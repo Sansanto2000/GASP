@@ -146,7 +146,7 @@ class SpectrumLabeledSequence(Sequence):
       # Cantidad de observaciones que entran en la imagen
       max_observations = math.floor(alto*0.95/(obs_heigth+distanceBetweenObservations/2))
       # Cuantas observaciones se dibujaran en una la imagen
-      n_observations = min(max_observations, random.randint(1, self.cant_observations_max+1))
+      n_observations = min(max_observations, random.randint(1, self.cant_observations_max))
 
       ### Definir posiciones ###
       # Posiciones donde ser realizara el dibujo centradas en alto
