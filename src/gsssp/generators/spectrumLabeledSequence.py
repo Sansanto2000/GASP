@@ -100,6 +100,7 @@ class SpectrumLabeledSequence(Sequence):
     self.violin_intensity_range = violin_intensity_range
     self.violin_length_range = violin_length_range
     self.prob_edge = prob_edge
+    self.rng = np.random.default_rng()
 
   # Number of batch in the Sequence.
   def __len__(self):
@@ -122,7 +123,7 @@ class SpectrumLabeledSequence(Sequence):
       img = np.full((alto, ancho, 3), gray_value, dtype=np.uint8)
       
       ### Definir limites de las observaciones ###
-      observations_limits = define_observations_limits(alto, ancho)
+      observations_limits = define_observations_limits(alto, ancho, self.rng)
 
       ### Observacion ###
       # Ancho de la observacion que varia en relacion al ancho total disponible.
