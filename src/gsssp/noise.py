@@ -53,6 +53,10 @@ def add_realistic_noise(
     # 4. Manchas alargadas
     violin_sigma: float = 6.0
     h, w = img.shape[:2]
+    # Ejes como columna y fila: al combinarlos broadcastean a (h, w) sin materializar
+    # dos grillas completas por mancha, como hacia np.meshgrid.
+    eje_y = np.arange(h)[:, None]
+    eje_x = np.arange(w)[None, :]
     for _ in range(violin_line_count):
         violin_length_ratio: float = np.random.uniform(*violin_length_range)
 
@@ -65,17 +69,15 @@ def add_realistic_noise(
         L = int(w * violin_length_ratio)
         sigma_x = L / 3
 
-        # Grilla de coordenadas
-        yy, xx = np.meshgrid(np.arange(h), np.arange(w), indexing="ij")
         # Gaussiana 2D estirada horizontalmente
         gaussian_2d = 255 * violin_intensity * np.exp(
             -(
-                ((yy - y0) ** 2) / (2 * violin_sigma ** 2) +
-                ((xx - x0) ** 2) / (2 * sigma_x ** 2)
+                ((eje_y - y0) ** 2) / (2 * violin_sigma ** 2) +
+                ((eje_x - x0) ** 2) / (2 * sigma_x ** 2)
             )
         )
-        # Aplicar
-        img_noisy += np.stack([gaussian_2d]*3, axis=-1)
+        # Aplicar. El eje extra broadcastea sobre los 3 canales sin copiar la gaussiana.
+        img_noisy += gaussian_2d[:, :, None]
 
     # 5. Desenfoque suave (simula ópticas imperfectas)
     if blur_ksize >= 3 and blur_ksize % 2 == 1:
