@@ -130,9 +130,11 @@ def drawObservation(
     # warpAffine), asi que el espectro tiene que medirse e indexarse en ese mismo sistema.
     # Usar el bounding box rotado (labelForGraph) desalinea el desvanecimiento y descarta
     # picos, y el desvio crece con el angulo.
+    # El +1 es porque los extremos son inclusivos: drawContours pinta tambien la columna
+    # partsX.max(), y sin el la ultima columna cae fuera del espectro y queda en baseGrey.
     partsX = np.concatenate([boxParts["lamp1"], boxParts["lamp2"], boxParts["science"]])[:,0]
     partsOriginX = int(partsX.min())
-    partsWidth = int(partsX.max() - partsX.min())
+    partsWidth = int(partsX.max() - partsX.min()) + 1
 
     # Pintar espectro de ciencia
     onlyObservation = np.zeros((*img.shape[:2], 3), dtype=np.uint8)
