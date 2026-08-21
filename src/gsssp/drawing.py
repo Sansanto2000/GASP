@@ -139,11 +139,9 @@ def drawObservation(
     cv2.drawContours(maskParts["lamp2"], [boxParts["lamp2"]], 0, 255, thickness=cv2.FILLED)
     cv2.drawContours(maskParts["science"], [boxParts["science"]], 0, 255, thickness=cv2.FILLED)
 
-    # Mascara general
-    maskObservation = np.zeros(img.shape[:2], dtype=np.uint8)
-    cv2.drawContours(maskObservation, [boxParts["lamp1"]], 0, 255, thickness=cv2.FILLED)
-    cv2.drawContours(maskObservation, [boxParts["lamp2"]], 0, 255, thickness=cv2.FILLED)
-    cv2.drawContours(maskObservation, [boxParts["science"]], 0, 255, thickness=cv2.FILLED)
+    # Mascara general: la union de las partes, que ya estan dibujadas. Rasterizar los
+    # mismos tres poligonos de nuevo daria identico resultado pero cuesta el triple.
+    maskObservation = maskParts["lamp1"] | maskParts["lamp2"] | maskParts["science"]
 
     # Dominio horizontal de los espectros, en el sistema SIN rotar.
     # Las partes se dibujan sin inclinacion (la rotacion se aplica recien al final con
