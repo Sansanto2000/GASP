@@ -1,12 +1,16 @@
 from keras.utils import Sequence
-import numpy as np
-from gsssp.observationArtist import Position, add_plate_edge, define_observations_limits, drawObservation, add_realistic_noise, edges_of_labels_relxywh
 import random
-import numpy as np
 import math
-import cv2
 from enum import Enum
+
+import numpy as np
+import cv2
 import tensorflow as tf
+
+from gsssp.drawing import drawObservation
+from gsssp.geometry import define_observations_limits
+from gsssp.labels import edges_of_labels_relxywh
+from gsssp.noise import Position, add_plate_edge, add_realistic_noise
 
 class OutputFormat(Enum):
   LIST = 0

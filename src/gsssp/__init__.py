@@ -1,16 +1,64 @@
-# importar desde el módulo principal
-from .observationArtist import drawObservation, spectral_function, rotate_point, labelDictToYolov11Format, labelListToYolov11Format
+"""GASP - Generator for Astronomical Spectroscopic Plates.
 
-# importar desde submódulo generators
-from .generators.spectrumLabeledSequence import SpectrumLabeledSequence, OutputFormat
+Generador de imagenes sinteticas de escaneos de placas espectroscopicas, con etiquetas
+listas para entrenar modelos de deteccion.
+"""
 
-# opcional: definir la API pública
+# Dibujado de observaciones
+from .drawing import drawObservation
+
+# Espectros sinteticos
+from .spectra import Fading, planck_like, spectral_function
+
+# Ruido de escaneo y bordes de placa
+from .noise import Position, add_plate_edge, add_realistic_noise
+
+# Etiquetas
+from .labels import (
+    edges_of_labels_relxywh,
+    labelDictToYolov11Format,
+    labelListToYolov11Format,
+)
+
+# Geometria (camino OBB)
+from .geometry import (
+    ComponentLimit,
+    ObservationLimit,
+    define_observation_components_limits,
+    define_observations_limits,
+    rotate_point,
+)
+
+# Depuracion
+from .debug import visualize_observations
+
+# Generador compatible con tensorflow
+from .generators.spectrumLabeledSequence import OutputFormat, SpectrumLabeledSequence
+
 __all__ = [
+    # dibujado
     "drawObservation",
+    # espectros
+    "Fading",
+    "planck_like",
     "spectral_function",
-    "rotate_point",
+    # ruido
+    "Position",
+    "add_plate_edge",
+    "add_realistic_noise",
+    # etiquetas
+    "edges_of_labels_relxywh",
     "labelDictToYolov11Format",
     "labelListToYolov11Format",
+    # geometria
+    "ComponentLimit",
+    "ObservationLimit",
+    "define_observation_components_limits",
+    "define_observations_limits",
+    "rotate_point",
+    # depuracion
+    "visualize_observations",
+    # generador
+    "OutputFormat",
     "SpectrumLabeledSequence",
-    "OutputFormat"
 ]
