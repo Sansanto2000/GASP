@@ -7,6 +7,27 @@ import numpy as np
 import cv2
 from enum import Enum
 
+def _paint_part(canvas, ys, xs, spectrum_function, originX, baseGrey):
+    """Pinta de una sola vez todos los pixeles de una parte de la observacion.
+
+    Cada columna toma la intensidad que le corresponde segun el espectro, con
+    baseGrey como piso para que la observacion se funda con el fondo.
+
+    Parametros:
+    - canvas {NDArray[np.uint8]}: imagen sobre la que se pinta (se modifica).
+    - ys {NDArray}: coordenadas verticales de los pixeles de la parte.
+    - xs {NDArray}: coordenadas horizontales de los pixeles de la parte.
+    - spectrum_function {Callable}: funcion de intensidad devuelta por spectral_function.
+    - originX {int}: coordenada X donde arranca el espectro.
+    - baseGrey {int}: nivel de gris minimo a considerar.
+    """
+    if len(xs) == 0:
+        return
+    intensities = spectrum_function(xs - originX)
+    intensities = np.maximum(intensities, baseGrey).astype(np.uint8)
+    canvas[ys, xs] = intensities[:, None]
+
+
 def drawObservation(
         img: NDArray[np.uint8], 
         x:int, y:int, width:int, height:int, 
@@ -150,10 +171,7 @@ def drawObservation(
         n_absorption_lines=random.randint(0, 12),
         absorption_lines_spread=random.uniform(0, 0.1),
         )
-    for xi, yi in zip(xs, ys):
-        intensity = science_function(xi-partsOriginX)
-        intensity = max(intensity,baseGrey) # Control de color de fondo
-        onlyObservation[yi, xi] = (intensity,intensity,intensity)
+    _paint_part(onlyObservation, ys, xs, science_function, partsOriginX, baseGrey)
 
     # Pintar lampara de comparación 1
     lamp_function = spectral_function(
@@ -166,17 +184,11 @@ def drawObservation(
         n_absorption_lines=0,
         )
     ys, xs = np.where(maskParts["lamp1"] == 255)
-    for xi, yi in zip(xs, ys):
-        intensity = lamp_function(xi-partsOriginX)
-        intensity = max(intensity,baseGrey) # Control de color de fondo
-        onlyObservation[yi, xi] = (intensity,intensity,intensity)
+    _paint_part(onlyObservation, ys, xs, lamp_function, partsOriginX, baseGrey)
 
     # Pintar lampara de comparación 2
     ys, xs = np.where(maskParts["lamp2"] == 255)
-    for xi, yi in zip(xs, ys):
-        intensity = lamp_function(xi-partsOriginX)
-        intensity = max(intensity,baseGrey) # Control de color de fondo
-        onlyObservation[yi, xi] = (intensity,intensity,intensity)
+    _paint_part(onlyObservation, ys, xs, lamp_function, partsOriginX, baseGrey)
 
     # Rotar espectro y mascara acorde a la cantidad de grados.
     M = cv2.getRotationMatrix2D((x,y), angle, 1)
@@ -281,11 +293,19 @@ def spectral_function(width:int, noise_level:float, n_peaks:int, baseline:int = 
 
     spectrum = spectrum.astype(np.uint8)
 
-    def intensity(xi: int) -> int:
-        if xi < 0 or xi >= width:
-            return 0
-        return int(spectrum[xi])
-    
+    def intensity(xi):
+        """Intensidad para un indice suelto o para un array de indices.
+
+        Fuera del rango [0, width) devuelve 0, igual que antes. Aceptar arrays
+        permite pintar una parte entera de una sola vez en vez de pixel por pixel.
+        """
+        idx = np.asarray(xi)
+        dentro = (idx >= 0) & (idx < width)
+        valores = np.where(dentro, spectrum[np.clip(idx, 0, width - 1)], 0)
+        if idx.ndim == 0:
+            return int(valores)
+        return valores
+
     return intensity
 
 def rotate_point(x:Number, y, cx, cy, angle_degrees) -> Tuple[Number,Number]:
