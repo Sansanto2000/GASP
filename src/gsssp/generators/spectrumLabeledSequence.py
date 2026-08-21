@@ -42,7 +42,6 @@ class SpectrumLabeledSequence(Sequence):
   - prob_edge: probabilidad de que se añada un borde a la placa.
   - batch_size: cantidad de elementos por lote.
   - resize_shape: dimensiones (ancho, alto) para las imagenes finales.
-  - max_predictions: cantidad maxima de predicciones que puede haber en una imagen.
   - output_format: formato de datos de salida.
   - batchs_per_sequence: cantidad de lotes a producir en una secuencia.
   """
@@ -65,7 +64,6 @@ class SpectrumLabeledSequence(Sequence):
       blur_kernel_size_options = [1, 3, 5, 7, 9, 11, 13, 15],
       batch_size = 128,
       resize_shape = (640, 640),
-      max_predictions = 50,
       violin_line_include:bool = True,
       violin_intensity_range = (0.1, 1.0),
       violin_length_range = (0.05, 0.7),
@@ -93,7 +91,6 @@ class SpectrumLabeledSequence(Sequence):
     self.blur_kernel_size_options = blur_kernel_size_options
     self.batch_size = batch_size
     self.resize_shape = resize_shape
-    self.max_predictions = max_predictions
     self.violin_line_include = violin_line_include
     self.output_format = output_format
     self.batchs_per_sequence = batchs_per_sequence

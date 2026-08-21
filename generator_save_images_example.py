@@ -20,8 +20,7 @@ spectrum_gen = SpectrumLabeledSequence(
     height_range=(500,2000),
     width_range=(500,2000),
     batch_size=BATCHT_SIZE, 
-    resize_shape=(640,640), 
-    max_predictions=20
+    resize_shape=(640,640)
 )
 
 ### Guardar elementos de la cantidad de lotes indicados ###
