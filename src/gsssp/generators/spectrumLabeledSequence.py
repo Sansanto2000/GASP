@@ -209,12 +209,10 @@ class SpectrumLabeledSequence(Sequence):
           p=[0.9, 0.09, 0.009, 0.001]
         ) if self.violin_line_include else 0
       # Intensidad de las manchas alargadas tipo "violín"
-      violin_intensity = random.uniform(0.1, 1.0)
-      # Rango porcentual de longitud de las manchas alargadas tipo "violín"
-      violin_length_range = (0.05, 0.7)
+      violin_intensity = random.uniform(*self.violin_intensity_range)
       # Añadir ruido en la imagen
       img = add_realistic_noise(
-        img, 
+        img,
         gaussian_std=gaussian_std,
         band_intensity=band_intensity,
         speck_count=speck_count,
@@ -222,7 +220,7 @@ class SpectrumLabeledSequence(Sequence):
         blur_ksize=blur_kernel_size,
         violin_line_count=violin_line_count,
         violin_intensity=violin_intensity,
-        violin_length_range=violin_length_range
+        violin_length_range=self.violin_length_range
       )
 
       # Redimensionar imagen
