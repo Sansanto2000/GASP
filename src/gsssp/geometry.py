@@ -1,9 +1,7 @@
-"""Geometria de observaciones: rotacion de puntos y limites (camino OBB)."""
+"""Geometria de observaciones: cajas envolventes y limites (camino OBB)."""
 import math
 from numbers import Number
 from typing import Tuple
-
-import numpy as np
 
 def rotated_aabb(width:Number, height:Number, angle_degrees:Number) -> Tuple[Number,Number]:
     """Dimensiones de la caja alineada a los ejes que envuelve un rectangulo rotado.
@@ -63,33 +61,6 @@ def max_height_for_canvas(width:Number, angle_degrees:Number, alto:int, ancho:in
     limite_alto = (alto - width*s) / c if c > 0 else float("inf")
     limite_ancho = (ancho - width*c) / s if s > 0 else float("inf")
     return max(0.0, min(limite_alto, limite_ancho))
-
-def rotate_point(x:Number, y, cx, cy, angle_degrees) -> Tuple[Number,Number]:
-    """Rotar un punto en relacion centro segun la formula de rotacion 2D.
-
-    Parametros:
-    - x {Number}: X del punto a rotar.
-    - y {Number}: Y del punto a rotar.
-    - cx {Number}: X del centro.
-    - cy {Number}: Y del centro.
-    - angle_degrees {Number}: angulo de rotación (en grados).
-
-    Return:
-    - {Tuple[Number,Number]}: punto luego de rotar.
-    """
-    theta = np.radians(angle_degrees)
-
-    # Trasladar el punto para que el centro sea el origen
-    tx = x - cx
-    ty = y - cy
-
-    # Aplicar rotación
-    rx = tx * np.cos(theta) - ty * np.sin(theta)
-    ry = tx * np.sin(theta) + ty * np.cos(theta)
-
-    # Trasladar de vuelta
-    return rx + cx, ry + cy
-
 
 class ComponentLimit:
     """Clase que representa los limites de una componente de la observacion (lampara 1, lampara 2 o espectro de ciencia).

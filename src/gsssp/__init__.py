@@ -28,7 +28,7 @@ from .geometry import (
     define_observations_limits,
     max_height_for_canvas,
     max_width_for_canvas,
-    rotate_point,
+    rotated_aabb,
 )
 
 # Depuracion
@@ -59,7 +59,7 @@ __all__ = [
     "define_observations_limits",
     "max_height_for_canvas",
     "max_width_for_canvas",
-    "rotate_point",
+    "rotated_aabb",
     # depuracion
     "visualize_observations",
     # generador
