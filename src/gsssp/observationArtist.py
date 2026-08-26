@@ -15,6 +15,8 @@ from gsssp.geometry import (
     ObservationLimit,
     define_observation_components_limits,
     define_observations_limits,
+    max_height_for_canvas,
+    max_width_for_canvas,
     rotate_point,
 )
 from gsssp.labels import (
@@ -38,6 +40,8 @@ __all__ = [
     "edges_of_labels_relxywh",
     "labelDictToYolov11Format",
     "labelListToYolov11Format",
+    "max_height_for_canvas",
+    "max_width_for_canvas",
     "planck_like",
     "rotate_point",
     "spectral_function",

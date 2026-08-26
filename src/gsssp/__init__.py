@@ -26,6 +26,8 @@ from .geometry import (
     ObservationLimit,
     define_observation_components_limits,
     define_observations_limits,
+    max_height_for_canvas,
+    max_width_for_canvas,
     rotate_point,
 )
 
@@ -55,6 +57,8 @@ __all__ = [
     "ObservationLimit",
     "define_observation_components_limits",
     "define_observations_limits",
+    "max_height_for_canvas",
+    "max_width_for_canvas",
     "rotate_point",
     # depuracion
     "visualize_observations",

@@ -5,6 +5,65 @@ from typing import Tuple
 
 import numpy as np
 
+def rotated_aabb(width:Number, height:Number, angle_degrees:Number) -> Tuple[Number,Number]:
+    """Dimensiones de la caja alineada a los ejes que envuelve un rectangulo rotado.
+
+    Parametros:
+    - width {Number}: ancho del rectangulo sin rotar.
+    - height {Number}: alto del rectangulo sin rotar.
+    - angle_degrees {Number}: angulo de inclinacion en grados.
+
+    Return:
+    - {Tuple[Number,Number]}: (ancho, alto) de la caja envolvente.
+    """
+    c = abs(math.cos(math.radians(angle_degrees)))
+    s = abs(math.sin(math.radians(angle_degrees)))
+    return width*c + height*s, width*s + height*c
+
+def max_width_for_canvas(angle_degrees:Number, alto:int, ancho:int) -> float:
+    """Ancho maximo de una observacion para que quepa inclinada, aun con alto cero.
+
+    Con angulos grandes una observacion muy ancha no entra en el canvas por mas fina
+    que sea: su propia diagonal ya se pasa. Acotar el alto no alcanza en ese caso.
+
+    Parametros:
+    - angle_degrees {Number}: angulo de inclinacion en grados.
+    - alto {int}: alto del canvas en pixeles.
+    - ancho {int}: ancho del canvas en pixeles.
+
+    Return:
+    - {float}: ancho maximo admisible.
+    """
+    c = abs(math.cos(math.radians(angle_degrees)))
+    s = abs(math.sin(math.radians(angle_degrees)))
+    limite_ancho = ancho / c if c > 0 else float("inf")
+    limite_alto = alto / s if s > 0 else float("inf")
+    return min(limite_ancho, limite_alto)
+
+def max_height_for_canvas(width:Number, angle_degrees:Number, alto:int, ancho:int) -> float:
+    """Alto maximo de una observacion para que su caja envolvente entre en el canvas.
+
+    Una observacion inclinada ocupa una caja alineada a los ejes mas grande que ella:
+    a 18 grados el alto de la envolvente llega a ser 2.8x el alto nominal. Si esa caja
+    supera el canvas, la etiqueta normalizada da width_norm o height_norm mayor a 1 y
+    Yolo descarta la imagen entera al validar el dataset.
+
+    Parametros:
+    - width {Number}: ancho de la observacion en pixeles.
+    - angle_degrees {Number}: angulo de inclinacion en grados.
+    - alto {int}: alto del canvas en pixeles.
+    - ancho {int}: ancho del canvas en pixeles.
+
+    Return:
+    - {float}: alto maximo admisible. Puede ser 0 si el ancho por si solo ya no entra.
+    """
+    c = abs(math.cos(math.radians(angle_degrees)))
+    s = abs(math.sin(math.radians(angle_degrees)))
+    # De width*s + height*c <= alto  y  width*c + height*s <= ancho
+    limite_alto = (alto - width*s) / c if c > 0 else float("inf")
+    limite_ancho = (ancho - width*c) / s if s > 0 else float("inf")
+    return max(0.0, min(limite_alto, limite_ancho))
+
 def rotate_point(x:Number, y, cx, cy, angle_degrees) -> Tuple[Number,Number]:
     """Rotar un punto en relacion centro segun la formula de rotacion 2D.
 

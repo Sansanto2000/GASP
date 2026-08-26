@@ -8,7 +8,11 @@ import cv2
 import tensorflow as tf
 
 from gsssp.drawing import drawObservation
-from gsssp.geometry import define_observations_limits
+from gsssp.geometry import (
+    define_observations_limits,
+    max_height_for_canvas,
+    max_width_for_canvas,
+)
 from gsssp.labels import edges_of_labels_relxywh
 from gsssp.noise import Position, add_plate_edge, add_realistic_noise
 
@@ -133,6 +137,10 @@ class SpectrumLabeledSequence(Sequence):
       obs_heigth = random.randint(int(alto*0.1), int(alto*0.8))
       # Inclinacion de la observacion.
       angle = random.randint(*self.angle_range)
+      # Recortar ancho y alto para que la caja envolvente de la observacion inclinada entre
+      # en el canvas. Si no, la etiqueta normalizada supera 1 y Yolo descarta la imagen entera.
+      obs_width = max(1, min(obs_width, int(max_width_for_canvas(angle, alto, ancho))))
+      obs_heigth = max(1, min(obs_heigth, int(max_height_for_canvas(obs_width, angle, alto, ancho))))
       # Que tan anchas van a ser los espectros de lampara en relacion al espectro de ciencia
       openingLamp = random.uniform(*self.opening_lamp_range)
       # Cuanto espacio vacio hay entre cada lampara y el espectro de ciencia.
