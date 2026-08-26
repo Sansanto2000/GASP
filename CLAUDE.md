@@ -4,9 +4,12 @@ Generador de imágenes sintéticas de escaneos de placas espectroscópicas, con 
 listas para entrenar modelos de detección (YOLO / Keras-CV). Se usa como **librería
 importable** y también vía scripts de ejemplo.
 
-> El repo se llama `GSSSP` en el filesystem y el paquete Python sigue siendo `gsssp`.
-> El nombre público del proyecto es **GASP** (pasó por `G3SP` en el medio). No renombrar
-> el paquete de forma oportunista: es un cambio propio, no algo que se cuela en otro commit.
+> La carpeta local se llama `GSSSP` y el paquete Python sigue siendo `gsssp`, pero el repo
+> en GitHub ya es **`Sansanto2000/GASP`** (pasó por `G3SP` en el medio). Si el `git remote`
+> todavía apunta a `GSSSP.git`, funciona por redirección pero conviene actualizarlo:
+> `git remote set-url origin https://github.com/Sansanto2000/GASP.git`.
+> No renombrar el paquete de forma oportunista: es un cambio propio, no algo que se cuela
+> en otro commit.
 
 ## Estructura
 
@@ -109,12 +112,68 @@ fix: :bug: rng faltante en define_observations_limits
 ## Reglas de interacción
 
 - **No commitear ni pushear sin confirmación explícita**, aunque el cambio ya esté verificado.
-- Issues y PRs creados o editados por el asistente llevan la label **`ai-review`**
-  (nota: esa label todavía **no existe** en el repo; hay que crearla antes del primer uso).
-- Sin disclaimers ni notas de autoría automática en el texto de issues/PRs.
-- **Nunca nombres de personas** en el cuerpo de issues/PRs.
 - Trabajo sobre un Issue → siempre vía **PR**, titulado `<feat|fix>: [ID-XXX] <Título del Issue>`.
   Las ramas de issue siguen el patrón que genera GitHub: `<n>-<slug-del-issue>`.
+
+## Issues
+
+Aplican tanto a este repo como a **midusi/PlateUNLP**, de donde salió parte de este código.
+
+### Buscar antes de crear
+
+Antes de abrir un issue nuevo, buscar si ya existe:
+
+```bash
+gh search issues --repo Sansanto2000/GASP "términos"
+```
+
+Los astrónomos del equipo reportan **síntomas** desde el lado observacional antes de que se
+encuentre la causa en el código, así que es común que el síntoma ya esté cargado. Si ya
+existe, comentar ahí el diagnóstico en vez de duplicar.
+
+### Respaldar con números, no solo con lectura de código
+
+Si el caso se puede reproducir corriendo el código (`uv run <script>`, o
+`.venv/bin/python` para un script suelto), hacerlo y citar los valores medidos. Leer el
+código alcanza para una hipótesis; correrlo la convierte en confirmación.
+
+### Estructura del cuerpo
+
+- Historia de usuario: *"Como [rol], quiero [necesidad], para [motivo]."*
+- `## Problema` — qué pasa hoy, con cita de código o valores medidos si corresponde.
+- `## Posible origen` — solo si hay una causa raíz identificada. No inventarla si no se tiene.
+- `## Posible solución` — **UNA** recomendación concreta, no una lista neutra de alternativas.
+  Si hay un camino obviamente más simple, decirlo explícitamente. Ser concreto sobre el
+  **mecanismo** ("acotando el alto según el ángulo"), no solo sobre el resultado
+  ("que las etiquetas entren en el canvas").
+- `## Relacionado` / `## Depende de` — referencias cruzadas (`#XXX`). Al agregar una,
+  comentar también en el issue del otro lado para que el link se vea desde ambos.
+
+### Tono
+
+Profesional y formal. **Nunca el nombre de una persona** en el cuerpo ni en un comentario:
+ni como responsable, ni como fuente de la idea, ni como quien lo reportó ("como señaló X"
+queda afuera). La asignación se maneja con el campo *assignee* o el milestone de GitHub.
+
+Sin disclaimers ni notas de autoría automática en el texto.
+
+### Etiquetas y milestone
+
+- **`ai-review`** en todo lo que el asistente cree o edite (issue nuevo, comentario, cuerpo
+  editado): es la señal de "pendiente de revisión humana", y reemplaza a cualquier marcador
+  tipo 🤖 dentro del texto. **Todavía no existe en este repo**, hay que crearla antes del
+  primer uso.
+- **`usable-minima`**: marca lo necesario para una primera versión usable. **No
+  autoasignársela** — es una decisión de priorización, no algo que se infiera del bug.
+- Milestone **"Tesis V. Dome"**: agrupa un plan de trabajo completo, incluido el trabajo de
+  soporte, no solo lo de una persona. Asignarlo cuando el issue sea parte de ese plan.
+  (Ni esta label ni este milestone existen hoy en este repo; sí en PlateUNLP.)
+
+### Gotcha de herramienta
+
+`gh api -f campo=@archivo` **no lee el archivo**: escribe el string literal `@archivo`. El
+`@` mágico solo funciona con `-F`/`--field` (mayúscula). Verificar el resultado después de
+cualquier `gh api -X PATCH` que lea de un archivo, porque no falla si sale mal.
 
 ## Qué NO entra en un commit
 
