@@ -7,7 +7,7 @@ import numpy as np
 import cv2
 import tensorflow as tf
 
-from gsssp.drawing import drawObservation
+from gsssp.drawing import draw_observation
 from gsssp.geometry import (
     define_observations_limits,
     max_height_for_canvas,
@@ -180,7 +180,7 @@ class SpectrumLabeledSequence(Sequence):
       ### Dibujar ###
       labels = []
       for coor in targets:
-        img, _obs, _mask, label = drawObservation(
+        img, _obs, _mask, label = draw_observation(
           img=img,
           x=coor["x"], 
           y=coor["y"],

@@ -27,7 +27,7 @@ def _paint_part(canvas, ys, xs, spectrum_function, originX, baseGrey):
     intensities = np.maximum(intensities, baseGrey).astype(np.uint8)
     canvas[ys, xs] = intensities[:, None]
 
-def drawObservation(
+def draw_observation(
         img: NDArray[np.uint8], 
         x:int, y:int, width:int, height:int, 
         opening:float, distanceBetweenParts:float,
@@ -199,3 +199,7 @@ def drawObservation(
     img = np.maximum(img, onlyObservation)  # Quedarse con los pixeles mas altos.
 
     return img, onlyObservation, maskObservation, labelObservation
+
+# Alias de compatibilidad: el nombre viejo en camelCase sigue funcionando para los
+# scripts de entrenamiento externos. Para codigo nuevo usar draw_observation.
+drawObservation = draw_observation

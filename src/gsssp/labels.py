@@ -16,7 +16,7 @@ def _yolov11(class_id, x_center, y_center, width, height) -> str:
     """
     return f"{class_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}"
 
-def labelDictToYolov11Format(label) -> str:
+def label_dict_to_yolov11_format(label) -> str:
     """Recibe la informacion de una etiqueta en formato dict y la convierte a un
     string en formato Yolov11.
 
@@ -31,7 +31,7 @@ def labelDictToYolov11Format(label) -> str:
         label["width_norm"], label["height_norm"],
     )
 
-def labelListToYolov11Format(label) -> str:
+def label_list_to_yolov11_format(label) -> str:
     """Recibe la informacion de una etiqueta en formato list y la convierte a un
     string en formato Yolov11.
 
@@ -80,3 +80,8 @@ def edges_of_labels_relxywh(labels, alto, ancho):
         if y_min < min_y:
             min_y = y_min
     return [min_x, max_x, min_y, max_y]
+
+# Alias de compatibilidad: los nombres viejos en camelCase siguen funcionando.
+# Para codigo nuevo usar las variantes en snake_case.
+labelDictToYolov11Format = label_dict_to_yolov11_format
+labelListToYolov11Format = label_list_to_yolov11_format
