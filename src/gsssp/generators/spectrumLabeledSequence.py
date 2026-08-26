@@ -162,24 +162,24 @@ class SpectrumLabeledSequence(Sequence):
       noise_horizontal = self.noise_horizontal # Irregularidad porcentual horizontal maxima
       noise_vertical = self.noise_vertical # Irregularidad porcentual veartical maxima
       unit = obs_heigth + distanceBetweenObservations# Espacio a considerar por observación
-      targets = []
+      posiciones = []
       for i in range(n_observations):
         pos_y = (alto/2) - (n_observations/2)*unit + unit/2 + i*unit
         coor = {
           "x": ancho/2 + random.uniform(-noise_horizontal, noise_horizontal), 
           "y": pos_y + random.uniform(-noise_vertical, noise_vertical), 
         }
-        targets.append(coor)
-      # eliminar targets con probabilidad 0.10
-      filtered_targets = [t for t in targets if random.random() > 0.10]
+        posiciones.append(coor)
+      # eliminar posiciones con probabilidad 0.10
+      posiciones_filtradas = [t for t in posiciones if random.random() > 0.10]
       # garantizar que quede al menos 1
-      if len(filtered_targets) == 0 and len(targets) > 0:
-        filtered_targets.append(random.choice(targets))
-      targets = filtered_targets
+      if len(posiciones_filtradas) == 0 and len(posiciones) > 0:
+        posiciones_filtradas.append(random.choice(posiciones))
+      posiciones = posiciones_filtradas
 
       ### Dibujar ###
       labels = []
-      for coor in targets:
+      for coor in posiciones:
         img, _obs, _mask, label = draw_observation(
           img=img,
           x=coor["x"], 
