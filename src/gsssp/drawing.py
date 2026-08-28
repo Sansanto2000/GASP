@@ -1,6 +1,4 @@
 """Dibujado de una observacion espectroscopica sobre una imagen."""
-import random
-
 import cv2
 import numpy as np
 from numpy.typing import NDArray
@@ -32,7 +30,8 @@ def draw_observation(
         x:int, y:int, width:int, height:int, 
         opening:float, distanceBetweenParts:float,
         angle:int=0, inplace:bool=True, 
-        baseGrey:int = 1, debug:bool=True) -> NDArray[np.uint8]:
+        baseGrey:int = 1, debug:bool=True,
+        *, rng:np.random.Generator = None) -> NDArray[np.uint8]:
     """Funcion que recibe la informacion de una imagen en formato
     matricial y dibuja una observacion en la misma acorde a las 
     cordenadas especificadas.
@@ -61,6 +60,8 @@ def draw_observation(
     - baseGrey {int}?: nivel de gris minimo a considerar. Default 1.
     - debug {bool}?: al activar se pinta las cajas delimitadoras de la observacion
     generada sobre la imagen. Default False.
+    - rng {np.random.Generator}?: generador aleatorio a usar. Si no se pasa se crea uno
+    sin semilla. Recibirlo permite que el resultado sea reproducible y seguro entre hilos.
 
     return 
     - {NDArray[np.uint8]}: matriz de pixeles que representa la 
@@ -73,6 +74,9 @@ def draw_observation(
     yolov11).
     """
     
+    if rng is None:
+        rng = np.random.default_rng()
+
     if not inplace:
         img = img.copy()
 
@@ -157,16 +161,17 @@ def draw_observation(
     # Pintar espectro de ciencia
     onlyObservation = np.zeros((*img.shape[:2], 3), dtype=np.uint8)
     ys, xs = np.where(maskParts["science"] == 255)
-    vertical_noise_level = random.uniform(0,0.05)
+    vertical_noise_level = rng.uniform(0,0.05)
     science_function = spectral_function(
         width=partsWidth,
-        noise_level=255*random.uniform(0, 0.01), 
-        n_peaks=random.randint(4, 10),
-        baseline=random.randint(max(0, baseGrey-60), baseGrey+15),
+        noise_level=255*rng.uniform(0, 0.01),
+        n_peaks=int(rng.integers(4, 11)),
+        baseline=int(rng.integers(max(0, baseGrey-60), baseGrey+16)),
         vertical_noise_level= vertical_noise_level,
-        peak_spread=random.uniform(0.4, 2.6),
-        n_absorption_lines=random.randint(0, 12),
-        absorption_lines_spread=random.uniform(0, 0.1),
+        peak_spread=rng.uniform(0.4, 2.6),
+        n_absorption_lines=int(rng.integers(0, 13)),
+        absorption_lines_spread=rng.uniform(0, 0.1),
+        rng=rng,
         )
     _paint_part(onlyObservation, ys, xs, science_function, partsOriginX, baseGrey)
 
@@ -174,11 +179,12 @@ def draw_observation(
     lamp_function = spectral_function(
         width=partsWidth,
         noise_level=255*0.01, 
-        n_peaks=random.randint(15, 150),
-        baseline=random.randint(max(0, baseGrey-60), baseGrey+5),
+        n_peaks=int(rng.integers(15, 151)),
+        baseline=int(rng.integers(max(0, baseGrey-60), baseGrey+6)),
         vertical_noise_level=vertical_noise_level,
-        peak_spread=random.uniform(0.001, 0.04),
+        peak_spread=rng.uniform(0.001, 0.04),
         n_absorption_lines=0,
+        rng=rng,
         )
     ys, xs = np.where(maskParts["lamp1"] == 255)
     _paint_part(onlyObservation, ys, xs, lamp_function, partsOriginX, baseGrey)
