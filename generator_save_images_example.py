@@ -40,6 +40,14 @@ spectrum_gen = SpectrumLabeledSequence(
     resize_shape=(640,640)
 )
 
+### Preparar la carpeta destino ###
+# Se crean antes del bucle: si falta alguna, cv2.imwrite devuelve False sin lanzar nada
+# y la corrida termina "bien" dejando etiquetas sin imagen.
+IMAGES_DIR = os.path.join(DESTINY, "images")
+LABELS_DIR = os.path.join(DESTINY, "labels")
+os.makedirs(IMAGES_DIR, exist_ok=True)
+os.makedirs(LABELS_DIR, exist_ok=True)
+
 ### Guardar elementos de la cantidad de lotes indicados ###
 batch_cant = BATCHT_CANT
 i = BEGIN_NUM
@@ -50,19 +58,23 @@ for batch_nro in tqdm(range(batch_cant)):
     for x, y in zip(batch_x, batch_y):
 
         # Guardar imagen sintetica
-        filepath = os.path.join(DESTINY,"images",f"{i}.jpg")
+        filepath = os.path.join(IMAGES_DIR, f"{i}.jpg")
         success = cv2.imwrite(filepath, x)
 
+        # Cortar en vez de avisar y seguir: si no se pudo escribir una, no se van a poder
+        # escribir las que faltan, y continuar deja el dataset descalzado.
         if not success:
-            print("¡Error al guardar la imagen! Verifica la ruta y permisos.")
+            raise RuntimeError(
+                f"No se pudo guardar la imagen en {filepath}. Verificar ruta y permisos."
+            )
 
         # Convertir etiquetas a formato Yolov11
         y = y.numpy()
         filtered = y[~np.all(y == 0, axis=1)]
         lines = map(label_list_to_yolov11_format, filtered)
-    
+
         # Guardar etiquetas
-        filepath = os.path.join(DESTINY,"labels",f"{i}.txt")
+        filepath = os.path.join(LABELS_DIR, f"{i}.txt")
         if lines:
             with open(filepath, "w") as f:
                 f.write("\n".join(lines))
