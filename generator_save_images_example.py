@@ -73,11 +73,12 @@ for batch_nro in tqdm(range(batch_cant)):
         filtered = y[~np.all(y == 0, axis=1)]
         lines = map(label_list_to_yolov11_format, filtered)
 
-        # Guardar etiquetas
+        # Guardar etiquetas. Siempre se escribe el archivo, aunque quede vacio: Yolo lo
+        # interpreta como imagen de fondo, y mantener la correspondencia 1 a 1 con las
+        # imagenes permite verificar que no se perdio nada contando archivos.
         filepath = os.path.join(LABELS_DIR, f"{i}.txt")
-        if lines:
-            with open(filepath, "w") as f:
-                f.write("\n".join(lines))
+        with open(filepath, "w") as f:
+            f.write("\n".join(lines))
 
         # Incrementar contador
         i += 1
