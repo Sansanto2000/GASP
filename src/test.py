@@ -1,9 +1,7 @@
 import numpy as np
 
-from gsssp.observationArtist import (
-    define_observations_limits,
-    visualize_observations,
-)
+from gsssp.debug import visualize_observations
+from gsssp.geometry import define_observations_limits
 
 rng = np.random.default_rng(42)
 

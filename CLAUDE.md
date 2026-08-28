@@ -22,7 +22,6 @@ src/gsssp/
   labels.py                          formateadores yolov11, edges_of_labels_relxywh
   geometry.py                        cajas envolventes y camino OBB (ObservationLimit)
   debug.py                           visualize_observations
-  observationArtist.py               shim de compatibilidad: solo reexporta
   generators/
     __init__.py
     spectrumLabeledSequence.py       keras.utils.Sequence que produce lotes (imagen, etiquetas)
@@ -33,9 +32,6 @@ assets/                              imágenes del README
 
 Los imports son siempre **`gsssp.*`** (paquete instalado en modo editable), nunca
 `src.gsssp.*`: esa segunda forma dependía del cwd y podía cargar el módulo dos veces.
-
-`observationArtist.py` era el archivo único de ~800 líneas; hoy es solo un shim que
-reexporta desde los módulos nuevos. Se puede borrar cuando no queden imports apuntándole.
 
 ### Camino OBB (WIP)
 
