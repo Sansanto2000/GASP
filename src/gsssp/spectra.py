@@ -1,5 +1,4 @@
 """Generacion de espectros sinteticos y curvas de desvanecimiento."""
-import random
 from typing import Callable
 from enum import Enum
 
@@ -14,7 +13,8 @@ def spectral_function(width:int, noise_level:float, n_peaks:int, baseline:int = 
                       vertical_noise_level:float=0.2, peak_spread:float=1.0, 
                       n_absorption_lines:int=0, 
                       absorption_lines_spread:float = 1.0,
-                      fading:Fading = Fading.PLANCK) -> Callable[[int], int]:
+                      fading:Fading = Fading.PLANCK,
+                      *, rng:np.random.Generator = None) -> Callable[[int], int]:
     """Genera una funcion que representa un espectro de ciencia sintetico.
 
     Parametros:
@@ -29,25 +29,31 @@ def spectral_function(width:int, noise_level:float, n_peaks:int, baseline:int = 
     - n_absorption_lines {int}?: cantidad de lineas de absorción a simular. Default 0.
     - absorption_lines_spread {float}?: multiplicador que afecta al ancho de los las 
     lineas de absorcion simuladas. Default 1.0.
+    - fading {Fading}?: tipo de desvanecimiento a aplicar. Default Fading.PLANCK.
+    - rng {np.random.Generator}?: generador aleatorio a usar. Si no se pasa se crea uno
+    sin semilla. Recibirlo permite que el resultado sea reproducible y seguro entre hilos.
 
     Return:
     - {Callable[[int], int]}: funcion que dado un valor entero informa la intensidad
     que le corresponde.
     """
 
+    if rng is None:
+        rng = np.random.default_rng()
+
     x = np.arange(width)
 
     # Crear fondo con ruido blanco gaussiano centrado en 0
-    noise = np.random.normal(loc=0.0, scale=noise_level, size=width)
+    noise = rng.normal(loc=0.0, scale=noise_level, size=width)
 
     # Espectro inicial como ruido (más ruido positivo)
     spectrum = noise.clip(min=0)
 
     # Agregar n picos gaussianos con alturas y anchos aleatorios
     for _ in range(n_peaks):
-        peak_center = np.random.uniform(0, width)
-        peak_width = np.random.uniform(width*0.01, width*0.1) * peak_spread
-        peak_height = np.random.uniform(50, 255)
+        peak_center = rng.uniform(0, width)
+        peak_width = rng.uniform(width*0.01, width*0.1) * peak_spread
+        peak_height = rng.uniform(50, 255)
 
         # Gaussiana: height * exp(- (x - center)^2 / (2*sigma^2))
         gaussian_peak = peak_height * np.exp(- (x - peak_center)**2 / (2 * peak_width**2))
@@ -56,18 +62,18 @@ def spectral_function(width:int, noise_level:float, n_peaks:int, baseline:int = 
     
     # Agregar n líneas de absorción (gaussianas invertidas)
     for _ in range(n_absorption_lines):
-        abs_center = np.random.uniform(0, width)
-        abs_width = np.random.uniform(width*0.01, width*0.04) * absorption_lines_spread
-        abs_depth = np.random.uniform(20, 100)  # Qué tan profundas son
+        abs_center = rng.uniform(0, width)
+        abs_width = rng.uniform(width*0.01, width*0.04) * absorption_lines_spread
+        abs_depth = rng.uniform(20, 100)  # Qué tan profundas son
 
         gaussian_absorption = abs_depth * np.exp(- (x - abs_center)**2 / (2 * abs_width**2))
-        if random.choice([0,1]) == 0:
+        if rng.integers(0, 2) == 0:
             spectrum -= gaussian_absorption
         else:
             spectrum += gaussian_absorption # Algunas lineas las suma
 
     # Pequeñas lineas blancas aleatorias
-    spectrum += np.random.rand(width)*vertical_noise_level
+    spectrum += rng.random(width)*vertical_noise_level
 
     ### Desvanecimiento
     match fading:
