@@ -40,7 +40,10 @@ def add_realistic_noise(
     img_noisy = img.astype(np.float32)
 
     # 1. Ruido gaussiano (general)
-    noise = rng.normal(0, gaussian_std, img.shape)
+    # Monocromo: se sortea un valor por pixel y se broadcastea sobre los 3 canales, en vez
+    # de uno por canal. Una placa fotografica en blanco y negro no tiene ruido cromatico,
+    # y de paso son 3 veces menos muestras gaussianas, que es el grueso de esta funcion.
+    noise = rng.normal(0, gaussian_std, (*img.shape[:2], 1))
     img_noisy += noise
 
     # 2. Ruido en bandas horizontales (tiras verticales o líneas horizontales)
