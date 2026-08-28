@@ -79,9 +79,25 @@ por clase (`observacion` / `science` / `lamp`). No es deuda accidental:
   entrena en Linux con GPU.
 - `uv.lock` está versionado: si cambian dependencias, el lock va **en el mismo commit**.
 
+### Configuración de las corridas
+
+Los parámetros que cambian por corrida viven en un `.env` en la raíz, no en el código:
+`GASP_OUTPUT_DIR` (obligatoria, sin ella el script corta), `GASP_BATCH_SIZE`,
+`GASP_BATCH_COUNT` y `GASP_BEGIN_NUM`. `.env.example` está commiteado y hace de
+documentación; `.env` está en `.gitignore`.
+
 ```bash
+cp .env.example .env      # y completar GASP_OUTPUT_DIR
 uv run generator_save_images_example.py
 ```
+
+Lo que ya esté exportado en el entorno **pisa** al `.env`, así que se puede cambiar un valor
+puntual sin editar el archivo.
+
+**El entorno lo leen los scripts de entrada, nunca la librería.** `src/gsssp/` no accede a
+`os.environ` en ningún lado y debe seguir así: recibe todo por parámetro y el script traduce
+las variables a esos parámetros. Es el mismo criterio que el `rng` explícito — la dependencia
+entra por argumento, no por estado global.
 
 ## Formatos de etiquetas
 
@@ -200,17 +216,16 @@ cualquier `gh api -X PATCH` que lea de un archivo, porque no falla si sale mal.
 
 ## Qué NO entra en un commit
 
-Rutas y artefactos locales que se filtran fácil desde los scripts de ejemplo:
+Rutas y artefactos locales que se filtran fácil:
 
-- `DESTINY` y demás rutas absolutas de dataset en `generator_save_images_example.py`
-  (`/mnt/data3/sponte/...`, `/Users/.../Datasets/...`). Cambiarlas para probar es normal;
-  commitearlas no.
-- Parámetros del script de ejemplo bajados para una corrida de prueba
-  (`BATCHT_CANT = 3`, bloques de kwargs comentados).
+- Valores de corrida en `.env`. Ya está en `.gitignore`, así que el riesgo no es commitearlo
+  sino **mover un valor de vuelta al código** para probar algo. Si hace falta un parámetro
+  nuevo, va al `.env` y al `.env.example`, no hardcodeado en el script.
+- Bloques de kwargs comentados en los scripts de ejemplo, dejados de una prueba.
 - Imágenes de debug generadas por el pipeline.
 
-`.gitignore` ya cubre `.DS_Store`, `*.code-workspace` y `observation_debug.png`. Si aparece
-otro artefacto local recurrente, va al `.gitignore` antes que al commit.
+`.gitignore` ya cubre `.DS_Store`, `*.code-workspace`, `observation_debug.png`, `.env` y
+`.envrc`. Si aparece otro artefacto local recurrente, va al `.gitignore` antes que al commit.
 
 Antes de proponer un commit: `git status` y revisar el diff completo, no solo los archivos
 que se tocaron a propósito.
