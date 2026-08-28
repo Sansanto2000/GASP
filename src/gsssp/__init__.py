@@ -5,7 +5,7 @@ listas para entrenar modelos de deteccion.
 """
 
 # Dibujado de observaciones
-from .drawing import drawObservation, draw_observation
+from .drawing import draw_observation
 
 # Espectros sinteticos
 from .spectra import Fading, planck_like, spectral_function
@@ -16,8 +16,6 @@ from .noise import Position, add_plate_edge, add_realistic_noise
 # Etiquetas
 from .labels import (
     edges_of_labels_relxywh,
-    labelDictToYolov11Format,
-    labelListToYolov11Format,
     label_dict_to_yolov11_format,
     label_list_to_yolov11_format,
 )
@@ -42,7 +40,6 @@ from .generators.spectrumLabeledSequence import OutputFormat, SpectrumLabeledSeq
 __all__ = [
     # dibujado
     "draw_observation",
-    "drawObservation",  # alias historico
     # espectros
     "Fading",
     "planck_like",
@@ -55,8 +52,6 @@ __all__ = [
     "edges_of_labels_relxywh",
     "label_dict_to_yolov11_format",
     "label_list_to_yolov11_format",
-    "labelDictToYolov11Format",  # alias historico
-    "labelListToYolov11Format",  # alias historico
     # geometria
     "ComponentLimit",
     "ObservationLimit",

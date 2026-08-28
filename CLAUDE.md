@@ -57,12 +57,11 @@ Estado conocido del WIP (no es deuda accidental, es trabajo a medio hacer):
   seguir el estilo del archivo que se edita).
 - `observationArtist.py` usa indentación de 4 espacios; `spectrumLabeledSequence.py` usa **2**.
   Respetar la del archivo, no unificar de paso.
-- Nombres de funciones en **snake_case**. Los nombres viejos en camelCase (`drawObservation`,
-  `labelDictToYolov11Format`, `labelListToYolov11Format`) siguen existiendo como **alias de
-  compatibilidad** para los scripts de entrenamiento externos; para código nuevo usar la
-  variante snake_case. Los **parámetros** de `draw_observation` siguen en camelCase
-  (`distanceBetweenParts`, `baseGrey`): renombrarlos rompe a quien los pase por keyword,
-  así que es un cambio propio y aparte.
+- Nombres de funciones en **snake_case**, sin excepciones. Los nombres viejos en camelCase
+  (`drawObservation`, `labelDictToYolov11Format`, `labelListToYolov11Format`) y
+  `rotate_point` fueron **eliminados**, no quedan alias. Los **parámetros** de
+  `draw_observation` siguen en camelCase (`distanceBetweenParts`, `baseGrey`): renombrarlos
+  es un cambio propio y aparte.
 - Aleatoriedad: el código viejo usa `random` / `np.random` globales; el código nuevo recibe
   un `np.random.Generator` (`rng`) explícito. Para código nuevo preferir `rng` inyectado.
   Hoy `SpectrumLabeledSequence` crea su `self.rng` sin semilla, así que el generador

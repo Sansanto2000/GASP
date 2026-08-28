@@ -80,8 +80,3 @@ def edges_of_labels_relxywh(labels, alto, ancho):
         if y_min < min_y:
             min_y = y_min
     return [min_x, max_x, min_y, max_y]
-
-# Alias de compatibilidad: los nombres viejos en camelCase siguen funcionando.
-# Para codigo nuevo usar las variantes en snake_case.
-labelDictToYolov11Format = label_dict_to_yolov11_format
-labelListToYolov11Format = label_list_to_yolov11_format

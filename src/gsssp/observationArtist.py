@@ -9,7 +9,7 @@ Se puede eliminar cuando no queden imports de `gsssp.observationArtist` dando vu
 """
 
 from gsssp.debug import visualize_observations
-from gsssp.drawing import drawObservation, draw_observation
+from gsssp.drawing import draw_observation
 from gsssp.geometry import (
     ComponentLimit,
     ObservationLimit,
@@ -21,8 +21,6 @@ from gsssp.geometry import (
 )
 from gsssp.labels import (
     edges_of_labels_relxywh,
-    labelDictToYolov11Format,
-    labelListToYolov11Format,
     label_dict_to_yolov11_format,
     label_list_to_yolov11_format,
 )
@@ -38,11 +36,8 @@ __all__ = [
     "add_realistic_noise",
     "define_observation_components_limits",
     "define_observations_limits",
-    "drawObservation",
     "draw_observation",
     "edges_of_labels_relxywh",
-    "labelDictToYolov11Format",
-    "labelListToYolov11Format",
     "label_dict_to_yolov11_format",
     "label_list_to_yolov11_format",
     "max_height_for_canvas",

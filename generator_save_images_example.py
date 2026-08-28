@@ -7,7 +7,7 @@ compatible con Tensorflow.
 import os
 import cv2
 from tqdm import tqdm
-from gsssp.observationArtist import labelListToYolov11Format
+from gsssp.labels import label_list_to_yolov11_format
 import numpy as np
 from gsssp.generators.spectrumLabeledSequence import SpectrumLabeledSequence
 
@@ -42,7 +42,7 @@ for batch_nro in tqdm(range(batch_cant)):
         # Convertir etiquetas a formato Yolov11
         y = y.numpy()
         filtered = y[~np.all(y == 0, axis=1)]
-        lines = map(labelListToYolov11Format, filtered)
+        lines = map(label_list_to_yolov11_format, filtered)
     
         # Guardar etiquetas
         filepath = os.path.join(DESTINY,"labels",f"{i}.txt")

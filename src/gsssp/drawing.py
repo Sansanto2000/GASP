@@ -199,7 +199,3 @@ def draw_observation(
     img = np.maximum(img, onlyObservation)  # Quedarse con los pixeles mas altos.
 
     return img, onlyObservation, maskObservation, labelObservation
-
-# Alias de compatibilidad: el nombre viejo en camelCase sigue funcionando para los
-# scripts de entrenamiento externos. Para codigo nuevo usar draw_observation.
-drawObservation = draw_observation
