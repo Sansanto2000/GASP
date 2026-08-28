@@ -16,56 +16,57 @@ importable** y también vía scripts de ejemplo.
 ```
 src/gsssp/
   __init__.py                        API pública del paquete (__all__)
-  observationArtist.py               núcleo de dibujado, ruido y etiquetas (~770 líneas)
+  drawing.py                         draw_observation: dibuja una observación
+  spectra.py                         spectral_function, Fading, planck_like
+  noise.py                           add_realistic_noise, add_plate_edge, Position
+  labels.py                          formateadores yolov11, edges_of_labels_relxywh
+  geometry.py                        cajas envolventes y camino OBB (ObservationLimit)
+  debug.py                           visualize_observations
+  observationArtist.py               shim de compatibilidad: solo reexporta
   generators/
+    __init__.py
     spectrumLabeledSequence.py       keras.utils.Sequence que produce lotes (imagen, etiquetas)
 src/test.py                          script manual de debug de define_observations_limits
 generator_save_images_example.py     ejemplo: volcar un dataset a disco
 assets/                              imágenes del README
 ```
 
-`src/gsssp/generators/` **no tiene `__init__.py`** (namespace package implícito). Funciona,
-pero tenerlo en cuenta si se toca el empaquetado.
-
 Los imports son siempre **`gsssp.*`** (paquete instalado en modo editable), nunca
 `src.gsssp.*`: esa segunda forma dependía del cwd y podía cargar el módulo dos veces.
 
-### `observationArtist.py`
+`observationArtist.py` era el archivo único de ~800 líneas; hoy es solo un shim que
+reexporta desde los módulos nuevos. Se puede borrar cuando no queden imports apuntándole.
 
-Dos generaciones de código conviven en este archivo:
+### Camino OBB (WIP)
 
-- **Camino en producción** — `drawObservation()`, `spectral_function()`, `add_realistic_noise()`,
-  `add_plate_edge()`, `edges_of_labels_relxywh()`, `labelDictToYolov11Format()`,
-  `labelListToYolov11Format()`. Es lo que el generador usa hoy. Etiquetas AABB (`rel_xywh`).
-- **Camino nuevo / WIP** — `ObservationLimit`, `ComponentLimit`, `define_observations_limits()`,
-  `define_observation_components_limits()`, `visualize_observations()`. Apunta a etiquetas
-  OBB (4 esquinas) y a componentes por clase (`observacion` / `science` / `lamp`).
-  Todavía **no está conectado** al pipeline.
+`geometry.py` tiene el trabajo a medio hacer hacia etiquetas OBB (4 esquinas) y componentes
+por clase (`observacion` / `science` / `lamp`). No es deuda accidental:
 
-Estado conocido del WIP (no es deuda accidental, es trabajo a medio hacer):
-
-- `spectrumLabeledSequence.__getitem__` ya llama `define_observations_limits()` con el
-  `rng` del generador (`self.rng`), pero **el resultado todavía no se usa aguas abajo**:
-  las observaciones se siguen posicionando con el código viejo basado en `random`.
-  Conectarlo es el próximo paso del camino OBB.
+- `define_observations_limits()` calcula las esquinas de cada observación y el generador ya
+  lo llama, pero **el resultado todavía no se usa aguas abajo**: las observaciones se siguen
+  posicionando con el código viejo. Conectarlo es el próximo paso.
 - `define_observation_components_limits()` y `ObservationLimit.define_components_limits()`
   son `pass`.
+- **Antes de conectarlo hay que decidir la convención de signo del ángulo**: `cv2.boxPoints`
+  y `cv2.getRotationMatrix2D` rotan al revés, y hoy el AABB tapa el error porque es simétrico.
 
 ### Convenciones de código
 
 - Docstrings y comentarios en **español** (sin tildes en buena parte del código existente;
   seguir el estilo del archivo que se edita).
-- `observationArtist.py` usa indentación de 4 espacios; `spectrumLabeledSequence.py` usa **2**.
-  Respetar la del archivo, no unificar de paso.
+- Los módulos de `src/gsssp/` usan indentación de 4 espacios; `spectrumLabeledSequence.py`
+  usa **2**. Respetar la del archivo, no unificar de paso.
 - Nombres de funciones en **snake_case**, sin excepciones. Los nombres viejos en camelCase
   (`drawObservation`, `labelDictToYolov11Format`, `labelListToYolov11Format`) y
   `rotate_point` fueron **eliminados**, no quedan alias. Los **parámetros** de
   `draw_observation` siguen en camelCase (`distanceBetweenParts`, `baseGrey`): renombrarlos
   es un cambio propio y aparte.
-- Aleatoriedad: el código viejo usa `random` / `np.random` globales; el código nuevo recibe
-  un `np.random.Generator` (`rng`) explícito. Para código nuevo preferir `rng` inyectado.
-  Hoy `SpectrumLabeledSequence` crea su `self.rng` sin semilla, así que el generador
-  **todavía no es reproducible**; exponer la semilla es un cambio pendiente propio.
+- Aleatoriedad: **no se usan `random` ni `np.random` globales en ningún lado**. Toda función
+  que sortee algo recibe un `np.random.Generator` como parámetro *keyword-only* `rng`, con
+  default `None` que resuelve a `np.random.default_rng()`. `SpectrumLabeledSequence` deriva
+  el suyo de `(seed, idx)`, así que el lote es función pura del índice: reproducible, y sin
+  estado compartido entre hilos ni procesos. Al agregar una función que sortee, seguir el
+  mismo patrón; volver a los globales rompe la reproducibilidad y el paralelismo.
 - Parámetros del generador: todos *keyword-only*, con rangos como tuplas `(min, max)`.
   Al agregar uno, sumarlo también al docstring de `__init__` y a `self.<nombre>`.
 
@@ -95,15 +96,35 @@ Clases previstas: `observacion`, `science`, `lamp`.
 
 # Git
 
+## Reglas de interacción
+
+- **No commitear ni pushear sin confirmación explícita**, aunque el cambio ya esté verificado.
+  El flujo es: hacer el cambio, verificarlo, mostrarlo, y **esperar la aprobación** antes de
+  commitear.
+
+## Flujo de trabajo sobre un Issue
+
+Vale para cualquier Issue, siempre igual:
+
+1. **Rama propia**, nombrada `ID-XXX` con el número del Issue. Se trabaja ahí, nunca sobre
+   `main` ni `dev`.
+2. **Vincular la rama al Issue** en GitHub, para que aparezca en la sección *Development*.
+3. Commits con el formato de abajo, cada uno esperando aprobación.
+4. Cuando están todos los commits, **crear el PR**. El merge lo ejecuta una persona,
+   contra `dev` y **con rebase**.
+
 ## Mensajes de commit
 
 ```
-<feat|fix>: [ID-XXX] <emoji> descripción corta
+<feat|fix>: [ID-XXX] descripción breve
 ```
 
-- `[ID-XXX]` solo si hay un Issue concreto; si no, se omite por completo.
-- Emoji en formato shortcode (`:sparkles:`, `:bug:`, `:memo:`, `:wrench:`, `:fire:`,
-  `:pushpin:`, `:package:`, `:truck:`), consistente con el historial.
+- **Solo `feat` o `fix`**, nunca los dos.
+- `[ID-XXX]` con el número del Issue, que normalmente coincide con el nombre de la rama.
+  Si no hay Issue, se omite por completo.
+- La descripción es **breve** y puede llevar un emoji, en formato shortcode
+  (`:sparkles:`, `:bug:`, `:memo:`, `:wrench:`, `:fire:`, `:zap:`, `:recycle:`, `:boom:`),
+  consistente con el historial.
 - Un commit = **un solo propósito**, y chico. Nada de arrastrar reformateos, renombres
   de proyecto o ajustes de parámetros de prueba dentro de un cambio funcional.
 
@@ -111,14 +132,11 @@ Ejemplos:
 
 ```
 feat: [ID-014] :sparkles: etiquetas OBB para observaciones
-fix: :bug: rng faltante en define_observations_limits
+fix: [ID-008] :bug: rng explicito en add_plate_edge
+fix: :fire: eliminar rotate_point, funcion sin uso
 ```
 
-## Reglas de interacción
-
-- **No commitear ni pushear sin confirmación explícita**, aunque el cambio ya esté verificado.
-- Trabajo sobre un Issue → siempre vía **PR**, titulado `<feat|fix>: [ID-XXX] <Título del Issue>`.
-  Las ramas de issue siguen el patrón que genera GitHub: `<n>-<slug-del-issue>`.
+El PR se titula `<feat|fix>: [ID-XXX] <Título del Issue>`.
 
 ## Issues
 
