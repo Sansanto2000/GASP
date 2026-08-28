@@ -1,5 +1,4 @@
 from keras.utils import Sequence
-import random
 import math
 from enum import Enum
 
@@ -120,38 +119,20 @@ class SpectrumLabeledSequence(Sequence):
 
     # El generador aleatorio se deriva de (semilla, idx), asi que el lote es funcion pura
     # del indice: el mismo idx siempre da el mismo lote, e indices distintos dan lotes
-    # distintos. Sin esto los workers de keras, que heredan el estado del proceso padre,
-    # producen todos el mismo lote.
+    # distintos. Al ser un objeto propio de esta llamada, no hay estado compartido entre
+    # hilos ni entre procesos.
     rng = np.random.default_rng((self.seed, idx))
 
-    # El dibujado, el ruido y los bordes de placa todavia usan los globales `random` y
-    # `np.random`. Se los siembra desde rng para que tambien queden atados a (semilla, idx),
-    # y se restaura el estado previo al salir para no pisarle el flujo a quien nos llame.
-    semilla_lote = int(rng.integers(0, 2**32))
-    estado_random = random.getstate()
-    estado_np = np.random.get_state()
-    random.seed(semilla_lote)
-    np.random.seed(semilla_lote)
-    try:
-      return self._build_batch(idx, rng)
-    finally:
-      random.setstate(estado_random)
-      np.random.set_state(estado_np)
-
-  def _build_batch(self, idx, rng):
-    """Arma un lote completo. Toda la aleatoriedad cuelga de `rng` y de los globales
-    ya sembrados por `__getitem__`.
-    """
     batch_x = []
     batch_y = []
 
     for i in range(self.batch_size):
       ### Canvas ###
       # Dimensiones.
-      alto = random.randint(*self.height_range)
-      ancho = random.randint(*self.width_range)
+      alto = int(rng.integers(self.height_range[0], self.height_range[1] + 1))
+      ancho = int(rng.integers(self.width_range[0], self.width_range[1] + 1))
       # Imagen base oscura completa.
-      gray_value = np.random.randint(self.gray_value_range[0]*255, self.gray_value_range[1]*255)
+      gray_value = int(rng.integers(self.gray_value_range[0]*255, self.gray_value_range[1]*255))
       img = np.full((alto, ancho, 3), gray_value, dtype=np.uint8)
       
       ### Definir limites de las observaciones ###
@@ -159,30 +140,30 @@ class SpectrumLabeledSequence(Sequence):
 
       ### Observacion ###
       # Ancho de la observacion que varia en relacion al ancho total disponible.
-      obs_width = random.randint(int(ancho*0.4), int(ancho*0.95))
+      obs_width = int(rng.integers(int(ancho*0.4), int(ancho*0.95) + 1))
       # Alto total de la observacion que varia en relacion al ancho de la misma.
-      obs_heigth = random.randint(int(alto*0.1), int(alto*0.8))
+      obs_heigth = int(rng.integers(int(alto*0.1), int(alto*0.8) + 1))
       # Inclinacion de la observacion.
-      angle = random.randint(*self.angle_range)
+      angle = int(rng.integers(self.angle_range[0], self.angle_range[1] + 1))
       # Recortar ancho y alto para que la caja envolvente de la observacion inclinada entre
       # en el canvas. Si no, la etiqueta normalizada supera 1 y Yolo descarta la imagen entera.
       obs_width = max(1, min(obs_width, int(max_width_for_canvas(angle, alto, ancho))))
       obs_heigth = max(1, min(obs_heigth, int(max_height_for_canvas(obs_width, angle, alto, ancho))))
       # Que tan anchas van a ser los espectros de lampara en relacion al espectro de ciencia
-      openingLamp = random.uniform(*self.opening_lamp_range)
+      openingLamp = rng.uniform(*self.opening_lamp_range)
       # Cuanto espacio vacio hay entre cada lampara y el espectro de ciencia.
-      distanceBetweenParts = random.uniform(*self.distance_between_components_range)
+      distanceBetweenParts = rng.uniform(*self.distance_between_components_range)
 
       ### Grupo de observaciones ###
       # Distancia entre distintas observaciones
-      distanceBetweenObservations = random.uniform(
+      distanceBetweenObservations = rng.uniform(
         obs_heigth*self.distance_between_observations_range[0], 
         obs_heigth*self.distance_between_observations_range[1]
       )
       # Cantidad de observaciones que entran en la imagen
       max_observations = math.floor(alto*0.95/(obs_heigth+distanceBetweenObservations/2))
       # Cuantas observaciones se dibujaran en una la imagen
-      n_observations = min(max_observations, random.randint(1, self.cant_observations_max))
+      n_observations = min(max_observations, int(rng.integers(1, self.cant_observations_max + 1)))
 
       ### Definir posiciones ###
       # Posiciones donde ser realizara el dibujo centradas en alto
@@ -193,15 +174,15 @@ class SpectrumLabeledSequence(Sequence):
       for i in range(n_observations):
         pos_y = (alto/2) - (n_observations/2)*unit + unit/2 + i*unit
         coor = {
-          "x": ancho/2 + random.uniform(-noise_horizontal, noise_horizontal), 
-          "y": pos_y + random.uniform(-noise_vertical, noise_vertical), 
+          "x": ancho/2 + rng.uniform(-noise_horizontal, noise_horizontal),
+          "y": pos_y + rng.uniform(-noise_vertical, noise_vertical),
         }
         posiciones.append(coor)
       # eliminar posiciones con probabilidad 0.10
-      posiciones_filtradas = [t for t in posiciones if random.random() > 0.10]
+      posiciones_filtradas = [t for t in posiciones if rng.random() > 0.10]
       # garantizar que quede al menos 1
       if len(posiciones_filtradas) == 0 and len(posiciones) > 0:
-        posiciones_filtradas.append(random.choice(posiciones))
+        posiciones_filtradas.append(posiciones[int(rng.integers(0, len(posiciones)))])
       posiciones = posiciones_filtradas
 
       ### Dibujar ###
@@ -219,33 +200,34 @@ class SpectrumLabeledSequence(Sequence):
           baseGrey=gray_value,
           inplace=True,
           debug=False,
+          rng=rng,
         )
         labels.append(label)
 
       ### Bordes de la placa ###
-      if(self.prob_edge > 0 and random.random() < self.prob_edge):
+      if(self.prob_edge > 0 and rng.random() < self.prob_edge):
         [x_min, x_max, y_min, y_max ] = edges_of_labels_relxywh(labels, alto, ancho)
-        side = random.choice([Position.RIGHT, Position.LEFT, Position.TOP, Position.BOTTOM])
-        img = add_plate_edge(img, (x_min, x_max, y_min, y_max), side)
+        side = [Position.RIGHT, Position.LEFT, Position.TOP, Position.BOTTOM][int(rng.integers(0, 4))]
+        img = add_plate_edge(img, (x_min, x_max, y_min, y_max), side, rng=rng)
 
       ### Ruido y manchas ###
       # Ruido gaussiano general para la imagen de la placa
-      gaussian_std = random.uniform(*self.gaussian_std_range)
+      gaussian_std = rng.uniform(*self.gaussian_std_range)
       # Ruido de banda horizontal
-      band_intensity = random.uniform(*self.band_intensity_range)
+      band_intensity = rng.uniform(*self.band_intensity_range)
       # Cantidad de manchas de polvo
-      speck_count = random.randint(*self.speck_count_range)
+      speck_count = int(rng.integers(self.speck_count_range[0], self.speck_count_range[1] + 1))
       # Radio maximo de las manchas de polvo
-      speck_size = random.randint(*self.speck_size_range)
+      speck_size = int(rng.integers(self.speck_size_range[0], self.speck_size_range[1] + 1))
       # Nivel del desenfoque gaussiano
-      blur_kernel_size = random.choice(self.blur_kernel_size_options)
+      blur_kernel_size = self.blur_kernel_size_options[int(rng.integers(0, len(self.blur_kernel_size_options)))]
       # Cantidad de manchas alargadas tipo "violín"
-      violin_line_count = np.random.choice(
+      violin_line_count = rng.choice(
           [0, 1, 2, 3],
           p=[0.9, 0.09, 0.009, 0.001]
         ) if self.violin_line_include else 0
       # Intensidad de las manchas alargadas tipo "violín"
-      violin_intensity = random.uniform(*self.violin_intensity_range)
+      violin_intensity = rng.uniform(*self.violin_intensity_range)
       # Añadir ruido en la imagen
       img = add_realistic_noise(
         img,
@@ -256,7 +238,8 @@ class SpectrumLabeledSequence(Sequence):
         blur_ksize=blur_kernel_size,
         violin_line_count=violin_line_count,
         violin_intensity=violin_intensity,
-        violin_length_range=self.violin_length_range
+        violin_length_range=self.violin_length_range,
+        rng=rng,
       )
 
       # Redimensionar imagen
