@@ -154,6 +154,21 @@ fix: :fire: eliminar rotate_point, funcion sin uso
 
 El PR se titula `<feat|fix>: [ID-XXX] <Título del Issue>`.
 
+### Descripción del PR
+
+**Breve.** El detalle ya está en el Issue y en los mensajes de commit; el cuerpo del PR no
+los repite. Alcanza con la keyword de cierre (`Close #XXX`), qué cambia en una o dos
+oraciones, y lo que quien revise necesite saber y no pueda deducir del diff.
+
+Sí conviene una **tabla de verificaciones** cuando el cambio se prestó a medirse: comparar el
+antes contra el después en las condiciones que importaban. Es lo que convierte "lo probé" en
+algo revisable. Pero va **solo cuando aporta**: si el cambio no tenía nada medible, se omite
+en vez de rellenarla.
+
+### Tags de versión
+
+Sin prefijo `v`: el tag es `0.1.0`, no `v0.1.0`. Mantener la misma forma siempre.
+
 ## Issues
 
 Aplican tanto a este repo como a **midusi/PlateUNLP**, de donde salió parte de este código.
