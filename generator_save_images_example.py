@@ -5,16 +5,33 @@ compatible con Tensorflow.
 '''
 
 import os
+import sys
+from pathlib import Path
 import cv2
+from dotenv import load_dotenv
 from tqdm import tqdm
 from gsssp.labels import label_list_to_yolov11_format
 import numpy as np
 from gsssp.generators.spectrumLabeledSequence import SpectrumLabeledSequence
 
-DESTINY = '/mnt/data3/sponte/datasets/conGSSSP.large.3' # "D:\\Datasets\\conGSSSP_v2"
-BATCHT_SIZE = 32
-BATCHT_CANT = 3000 # Total de 96000 imagenes
-BEGIN_NUM = 0 # Numero de inicio
+### Configuracion de la corrida ###
+# Las variables las lee este script, no la libreria: gsssp recibe todo por parametro.
+# Se apunta al .env que esta al lado de este archivo, no al del directorio actual, para
+# que la corrida no dependa de desde donde se invoque. Lo que ya este en el entorno tiene
+# prioridad sobre el .env, asi se puede pisar un valor puntual sin editar el archivo.
+load_dotenv(Path(__file__).with_name(".env"))
+
+DESTINY = os.getenv("GASP_OUTPUT_DIR")
+if not DESTINY:
+    sys.exit(
+        "Falta la variable GASP_OUTPUT_DIR.\n"
+        "Copiar el archivo de ejemplo y completar la ruta de salida:\n"
+        "    cp .env.example .env"
+    )
+
+BATCHT_SIZE = int(os.getenv("GASP_BATCH_SIZE", "32"))
+BATCHT_CANT = int(os.getenv("GASP_BATCH_COUNT", "3000"))
+BEGIN_NUM = int(os.getenv("GASP_BEGIN_NUM", "0"))
 
 spectrum_gen = SpectrumLabeledSequence(
     height_range=(500,2000),
