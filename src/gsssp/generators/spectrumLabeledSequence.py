@@ -52,6 +52,8 @@ class SpectrumLabeledSequence(Sequence):
   - resize_shape: dimensiones (ancho, alto) para las imagenes finales.
   - output_format: formato de datos de salida.
   - batchs_per_sequence: cantidad de lotes a producir en una secuencia.
+  - seed: semilla base del generador. El lote se deriva de (seed, idx), asi que con la
+  misma semilla la secuencia completa es reproducible. Default 0.
   """
   def __init__(
       self, *, 
@@ -78,6 +80,7 @@ class SpectrumLabeledSequence(Sequence):
       prob_edge = 0.1,
       output_format:OutputFormat = OutputFormat.LIST,
       batchs_per_sequence = 100,
+      seed = 0,
       **kwargs
     ):
     super().__init__(**kwargs)
@@ -105,7 +108,7 @@ class SpectrumLabeledSequence(Sequence):
     self.violin_intensity_range = violin_intensity_range
     self.violin_length_range = violin_length_range
     self.prob_edge = prob_edge
-    self.rng = np.random.default_rng()
+    self.seed = seed
 
   # Number of batch in the Sequence.
   def __len__(self):
@@ -115,9 +118,33 @@ class SpectrumLabeledSequence(Sequence):
   # Obtener el lote numero idx
   def __getitem__(self, idx):
 
+    # El generador aleatorio se deriva de (semilla, idx), asi que el lote es funcion pura
+    # del indice: el mismo idx siempre da el mismo lote, e indices distintos dan lotes
+    # distintos. Sin esto los workers de keras, que heredan el estado del proceso padre,
+    # producen todos el mismo lote.
+    rng = np.random.default_rng((self.seed, idx))
+
+    # El dibujado, el ruido y los bordes de placa todavia usan los globales `random` y
+    # `np.random`. Se los siembra desde rng para que tambien queden atados a (semilla, idx),
+    # y se restaura el estado previo al salir para no pisarle el flujo a quien nos llame.
+    semilla_lote = int(rng.integers(0, 2**32))
+    estado_random = random.getstate()
+    estado_np = np.random.get_state()
+    random.seed(semilla_lote)
+    np.random.seed(semilla_lote)
+    try:
+      return self._build_batch(idx, rng)
+    finally:
+      random.setstate(estado_random)
+      np.random.set_state(estado_np)
+
+  def _build_batch(self, idx, rng):
+    """Arma un lote completo. Toda la aleatoriedad cuelga de `rng` y de los globales
+    ya sembrados por `__getitem__`.
+    """
     batch_x = []
     batch_y = []
-    
+
     for i in range(self.batch_size):
       ### Canvas ###
       # Dimensiones.
@@ -128,7 +155,7 @@ class SpectrumLabeledSequence(Sequence):
       img = np.full((alto, ancho, 3), gray_value, dtype=np.uint8)
       
       ### Definir limites de las observaciones ###
-      observations_limits = define_observations_limits(alto, ancho, self.rng)
+      observations_limits = define_observations_limits(alto, ancho, rng)
 
       ### Observacion ###
       # Ancho de la observacion que varia en relacion al ancho total disponible.
