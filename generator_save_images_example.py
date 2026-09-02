@@ -10,7 +10,7 @@ from pathlib import Path
 import cv2
 from dotenv import load_dotenv
 from tqdm import tqdm
-from gsssp.labels import label_list_to_yolov11_format
+from gsssp.labels import label_list_to_yolov11_aabb_format
 import numpy as np
 from gsssp.generators.spectrumLabeledSequence import SpectrumLabeledSequence
 
@@ -71,7 +71,7 @@ for batch_nro in tqdm(range(batch_cant)):
         # Convertir etiquetas a formato Yolov11
         y = y.numpy()
         filtered = y[~np.all(y == 0, axis=1)]
-        lines = map(label_list_to_yolov11_format, filtered)
+        lines = map(label_list_to_yolov11_aabb_format, filtered)
 
         # Guardar etiquetas. Siempre se escribe el archivo, aunque quede vacio: Yolo lo
         # interpreta como imagen de fondo, y mantener la correspondencia 1 a 1 con las

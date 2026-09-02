@@ -12,11 +12,11 @@ class LabelFormat(Enum):
     OBB = 1
 
 
-def _yolov11(class_id, x_center, y_center, width, height) -> str:
+def _yolov11_aabb(class_id, x_center, y_center, width, height) -> str:
     """Arma la linea de texto de una etiqueta AABB en formato Yolov11.
 
-    Unico lugar donde vive el formato: las variantes por tipo de entrada solo extraen
-    los campos y delegan aca. Cuando se sume OBB, el formato nuevo se agrega al lado.
+    Unico lugar donde vive el formato AABB: las variantes por tipo de entrada solo
+    extraen los campos y delegan aca. Su hermana para OBB es `_yolov11_obb`.
 
     Parametros:
     - class_id: indice de la clase etiquetada.
@@ -31,7 +31,7 @@ def _yolov11(class_id, x_center, y_center, width, height) -> str:
 def _yolov11_obb(class_id, corners) -> str:
     """Arma la linea de texto de una etiqueta OBB en formato Yolov11.
 
-    Hermana de `_yolov11`: unico lugar donde vive el formato de 4 esquinas.
+    Hermana de `_yolov11_aabb`: unico lugar donde vive el formato de 4 esquinas.
 
     Parametros:
     - class_id: indice de la clase etiquetada.
@@ -46,7 +46,7 @@ def _yolov11_obb(class_id, corners) -> str:
         raise ValueError(f"Una etiqueta OBB necesita 8 valores, se recibieron {len(corners)}.")
     return f"{class_id} " + " ".join(f"{c:.6f}" for c in corners)
 
-def label_dict_to_yolov11_format(label) -> str:
+def label_dict_to_yolov11_aabb_format(label) -> str:
     """Recibe la informacion de una etiqueta en formato dict y la convierte a un
     string en formato Yolov11.
 
@@ -56,12 +56,12 @@ def label_dict_to_yolov11_format(label) -> str:
     Return:
     - {str}: información de la etiqueta en formato textual
     """
-    return _yolov11(
+    return _yolov11_aabb(
         label["class_id"], label["x_center_norm"], label["y_center_norm"],
         label["width_norm"], label["height_norm"],
     )
 
-def label_list_to_yolov11_format(label) -> str:
+def label_list_to_yolov11_aabb_format(label) -> str:
     """Recibe la informacion de una etiqueta en formato list y la convierte a un
     string en formato Yolov11.
 
@@ -71,7 +71,7 @@ def label_list_to_yolov11_format(label) -> str:
     Return:
     - {str}: información de la etiqueta en formato textual
     """
-    return _yolov11(label[0], label[1], label[2], label[3], label[4])
+    return _yolov11_aabb(label[0], label[1], label[2], label[3], label[4])
 
 def label_dict_to_yolov11_obb_format(label) -> str:
     """Recibe la informacion de una etiqueta en formato dict y la convierte a un
