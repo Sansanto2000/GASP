@@ -2,6 +2,18 @@
 from enum import Enum
 
 
+class LabelClass(Enum):
+    """Clases que puede etiquetar el generador.
+
+    Los indices son fijos: no se compactan segun que clases se pidan, para que el
+    data.yaml de Yolo sea el mismo sin importar la configuracion de la corrida.
+    Las dos lamparas de comparacion de una observacion comparten la clase LAMP.
+    """
+    OBSERVATION = 0
+    SCIENCE = 1
+    LAMP = 2
+
+
 class LabelFormat(Enum):
     """Esquema de etiqueta a producir.
 
