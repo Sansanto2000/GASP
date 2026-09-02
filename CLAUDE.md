@@ -62,11 +62,13 @@ de esta decisión — pero las OBB sí.
   seguir el estilo del archivo que se edita).
 - Los módulos de `src/gsssp/` usan indentación de 4 espacios; `spectrumLabeledSequence.py`
   usa **2**. Respetar la del archivo, no unificar de paso.
-- Nombres de funciones en **snake_case**, sin excepciones. Los nombres viejos en camelCase
-  (`drawObservation`, `labelDictToYolov11Format`, `labelListToYolov11Format`) y
-  `rotate_point` fueron **eliminados**, no quedan alias. Los **parámetros** de
-  `draw_observation` siguen en camelCase (`distanceBetweenParts`, `baseGrey`): renombrarlos
-  es un cambio propio y aparte.
+- Nombres de funciones en **snake_case**, sin excepciones y sin alias de compatibilidad.
+  Los **parámetros** de `draw_observation` siguen en camelCase (`distanceBetweenParts`,
+  `baseGrey`): renombrarlos es un cambio propio y aparte.
+- Nombres **simétricos entre variantes**: si hay dos formas de algo, las dos lo dicen en el
+  nombre. Los formateadores son `_yolov11_aabb` / `_yolov11_obb`, no `_yolov11` /
+  `_yolov11_obb` — que uno omita el sufijo lo hace parecer "el formato" y al otro una
+  excepción.
 - Aleatoriedad: **no se usan `random` ni `np.random` globales en ningún lado**. Toda función
   que sortee algo recibe un `np.random.Generator` como parámetro *keyword-only* `rng`, con
   default `None` que resuelve a `np.random.default_rng()`. `SpectrumLabeledSequence` deriva
@@ -114,8 +116,14 @@ entra por argumento, no por estado global.
 
 | Formato | Anatomía | Notas |
 |---|---|---|
-| YOLO (AABB) | `<class> <x> <y> <w> <h>` | class entero; resto normalizado [0-1], centro + tamaño. Lo que produce hoy el pipeline. |
-| OBB | `<class> <x1> <y1> ... <x4> <y4>` | 4 esquinas normalizadas. Objetivo del camino WIP. |
+| YOLO (AABB) | `<class> <x> <y> <w> <h>` | class entero; resto normalizado [0-1], centro + tamaño. |
+| OBB | `<class> <x1> <y1> ... <x4> <y4>` | 4 esquinas normalizadas. |
+
+Se elige con el parámetro `label_format` de `SpectrumLabeledSequence` (`LabelFormat.AABB`,
+el default, o `LabelFormat.OBB`). Cambia la cantidad de valores por caja en el lote: 4 u 8.
+
+**El orden de las esquinas OBB no importa.** Yolo deriva la caja con `cv2.minAreaRect`, que
+es independiente del orden de los puntos — verificado sobre las 24 permutaciones posibles.
 
 Clases previstas: `observacion`, `science`, `lamp`.
 
