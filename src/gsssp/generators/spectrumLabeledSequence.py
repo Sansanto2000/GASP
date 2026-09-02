@@ -125,6 +125,138 @@ class SpectrumLabeledSequence(Sequence):
     #return math.ceil((self.max_index - (self.min_index + self.lookback)) / self.batch_size)
     return self.batchs_per_sequence
 
+  def generar_placa(self, rng):
+    """Genera una placa completa a resolucion original, con sus observaciones.
+
+    Es el nucleo compartido de los generadores: `__getitem__` la redimensiona y arma el
+    lote, y un generador de recortes puede tomar cada observacion a partir de lo mismo.
+
+    Parametros:
+    - rng {np.random.Generator}: generador aleatorio del que cuelga todo el sorteo.
+
+    Return:
+    - {NDArray[np.uint8]}: la placa en escala de grises, sin redimensionar.
+    - {list[dict]}: una etiqueta por observacion, cada una con sus componentes.
+    """
+    ### Canvas ###
+    # Dimensiones.
+    alto = int(rng.integers(self.height_range[0], self.height_range[1] + 1))
+    ancho = int(rng.integers(self.width_range[0], self.width_range[1] + 1))
+    # Imagen base oscura completa. Se trabaja en escala de grises: la placa es monocroma,
+    # asi que arrastrar tres canales identicos durante el pipeline triplica memoria y
+    # computo sin agregar informacion. La expansion a tres canales se hace al final.
+    gray_value = int(rng.integers(self.gray_value_range[0]*255, self.gray_value_range[1]*255))
+    img = np.full((alto, ancho), gray_value, dtype=np.uint8)
+    
+    ### Definir limites de las observaciones ###
+    observations_limits = define_observations_limits(alto, ancho, rng)
+
+    ### Observacion ###
+    # Ancho de la observacion que varia en relacion al ancho total disponible.
+    obs_width = int(rng.integers(int(ancho*0.4), int(ancho*0.95) + 1))
+    # Alto total de la observacion que varia en relacion al ancho de la misma.
+    obs_heigth = int(rng.integers(int(alto*0.1), int(alto*0.8) + 1))
+    # Inclinacion de la observacion.
+    angle = int(rng.integers(self.angle_range[0], self.angle_range[1] + 1))
+    # Recortar ancho y alto para que la caja envolvente de la observacion inclinada entre
+    # en el canvas. Si no, la etiqueta normalizada supera 1 y Yolo descarta la imagen entera.
+    obs_width = max(1, min(obs_width, int(max_width_for_canvas(angle, alto, ancho))))
+    obs_heigth = max(1, min(obs_heigth, int(max_height_for_canvas(obs_width, angle, alto, ancho))))
+    # Que tan anchas van a ser los espectros de lampara en relacion al espectro de ciencia
+    openingLamp = rng.uniform(*self.opening_lamp_range)
+    # Cuanto espacio vacio hay entre cada lampara y el espectro de ciencia.
+    distanceBetweenParts = rng.uniform(*self.distance_between_components_range)
+
+    ### Grupo de observaciones ###
+    # Distancia entre distintas observaciones
+    distanceBetweenObservations = rng.uniform(
+      obs_heigth*self.distance_between_observations_range[0], 
+      obs_heigth*self.distance_between_observations_range[1]
+    )
+    # Cantidad de observaciones que entran en la imagen
+    max_observations = math.floor(alto*0.95/(obs_heigth+distanceBetweenObservations/2))
+    # Cuantas observaciones se dibujaran en una la imagen
+    n_observations = min(max_observations, int(rng.integers(1, self.cant_observations_max + 1)))
+
+    ### Definir posiciones ###
+    # Posiciones donde ser realizara el dibujo centradas en alto
+    noise_horizontal = self.noise_horizontal # Irregularidad porcentual horizontal maxima
+    noise_vertical = self.noise_vertical # Irregularidad porcentual veartical maxima
+    unit = obs_heigth + distanceBetweenObservations# Espacio a considerar por observación
+    posiciones = []
+    for i in range(n_observations):
+      pos_y = (alto/2) - (n_observations/2)*unit + unit/2 + i*unit
+      coor = {
+        "x": ancho/2 + rng.uniform(-noise_horizontal, noise_horizontal),
+        "y": pos_y + rng.uniform(-noise_vertical, noise_vertical),
+      }
+      posiciones.append(coor)
+    # eliminar posiciones con probabilidad 0.10
+    posiciones_filtradas = [t for t in posiciones if rng.random() > 0.10]
+    # garantizar que quede al menos 1
+    if len(posiciones_filtradas) == 0 and len(posiciones) > 0:
+      posiciones_filtradas.append(posiciones[int(rng.integers(0, len(posiciones)))])
+    posiciones = posiciones_filtradas
+
+    ### Dibujar ###
+    labels = []
+    for coor in posiciones:
+      img, _obs, _mask, label = draw_observation(
+        img=img,
+        x=coor["x"], 
+        y=coor["y"],
+        width=int(obs_width),
+        height=int(obs_heigth),
+        opening=openingLamp,
+        distanceBetweenParts=distanceBetweenParts,
+        angle=angle,
+        baseGrey=gray_value,
+        inplace=True,
+        debug=False,
+        rng=rng,
+      )
+      labels.append(label)
+
+    ### Bordes de la placa ###
+    if(self.prob_edge > 0 and rng.random() < self.prob_edge):
+      [x_min, x_max, y_min, y_max ] = edges_of_labels_relxywh(labels, alto, ancho)
+      side = [Position.RIGHT, Position.LEFT, Position.TOP, Position.BOTTOM][int(rng.integers(0, 4))]
+      img = add_plate_edge(img, (x_min, x_max, y_min, y_max), side, rng=rng)
+
+    ### Ruido y manchas ###
+    # Ruido gaussiano general para la imagen de la placa
+    gaussian_std = rng.uniform(*self.gaussian_std_range)
+    # Ruido de banda horizontal
+    band_intensity = rng.uniform(*self.band_intensity_range)
+    # Cantidad de manchas de polvo
+    speck_count = int(rng.integers(self.speck_count_range[0], self.speck_count_range[1] + 1))
+    # Radio maximo de las manchas de polvo
+    speck_size = int(rng.integers(self.speck_size_range[0], self.speck_size_range[1] + 1))
+    # Nivel del desenfoque gaussiano
+    blur_kernel_size = self.blur_kernel_size_options[int(rng.integers(0, len(self.blur_kernel_size_options)))]
+    # Cantidad de manchas alargadas tipo "violín"
+    violin_line_count = rng.choice(
+        [0, 1, 2, 3],
+        p=[0.9, 0.09, 0.009, 0.001]
+      ) if self.violin_line_include else 0
+    # Intensidad de las manchas alargadas tipo "violín"
+    violin_intensity = rng.uniform(*self.violin_intensity_range)
+    # Añadir ruido en la imagen
+    img = add_realistic_noise(
+      img,
+      gaussian_std=gaussian_std,
+      band_intensity=band_intensity,
+      speck_count=speck_count,
+      speck_size=speck_size,
+      blur_ksize=blur_kernel_size,
+      violin_line_count=violin_line_count,
+      violin_intensity=violin_intensity,
+      violin_length_range=self.violin_length_range,
+      rng=rng,
+    )
+
+    return img, labels
+
   # Obtener el lote numero idx
   def __getitem__(self, idx):
 
@@ -138,122 +270,7 @@ class SpectrumLabeledSequence(Sequence):
     batch_y = []
 
     for i in range(self.batch_size):
-      ### Canvas ###
-      # Dimensiones.
-      alto = int(rng.integers(self.height_range[0], self.height_range[1] + 1))
-      ancho = int(rng.integers(self.width_range[0], self.width_range[1] + 1))
-      # Imagen base oscura completa. Se trabaja en escala de grises: la placa es monocroma,
-      # asi que arrastrar tres canales identicos durante el pipeline triplica memoria y
-      # computo sin agregar informacion. La expansion a tres canales se hace al final.
-      gray_value = int(rng.integers(self.gray_value_range[0]*255, self.gray_value_range[1]*255))
-      img = np.full((alto, ancho), gray_value, dtype=np.uint8)
-      
-      ### Definir limites de las observaciones ###
-      observations_limits = define_observations_limits(alto, ancho, rng)
-
-      ### Observacion ###
-      # Ancho de la observacion que varia en relacion al ancho total disponible.
-      obs_width = int(rng.integers(int(ancho*0.4), int(ancho*0.95) + 1))
-      # Alto total de la observacion que varia en relacion al ancho de la misma.
-      obs_heigth = int(rng.integers(int(alto*0.1), int(alto*0.8) + 1))
-      # Inclinacion de la observacion.
-      angle = int(rng.integers(self.angle_range[0], self.angle_range[1] + 1))
-      # Recortar ancho y alto para que la caja envolvente de la observacion inclinada entre
-      # en el canvas. Si no, la etiqueta normalizada supera 1 y Yolo descarta la imagen entera.
-      obs_width = max(1, min(obs_width, int(max_width_for_canvas(angle, alto, ancho))))
-      obs_heigth = max(1, min(obs_heigth, int(max_height_for_canvas(obs_width, angle, alto, ancho))))
-      # Que tan anchas van a ser los espectros de lampara en relacion al espectro de ciencia
-      openingLamp = rng.uniform(*self.opening_lamp_range)
-      # Cuanto espacio vacio hay entre cada lampara y el espectro de ciencia.
-      distanceBetweenParts = rng.uniform(*self.distance_between_components_range)
-
-      ### Grupo de observaciones ###
-      # Distancia entre distintas observaciones
-      distanceBetweenObservations = rng.uniform(
-        obs_heigth*self.distance_between_observations_range[0], 
-        obs_heigth*self.distance_between_observations_range[1]
-      )
-      # Cantidad de observaciones que entran en la imagen
-      max_observations = math.floor(alto*0.95/(obs_heigth+distanceBetweenObservations/2))
-      # Cuantas observaciones se dibujaran en una la imagen
-      n_observations = min(max_observations, int(rng.integers(1, self.cant_observations_max + 1)))
-
-      ### Definir posiciones ###
-      # Posiciones donde ser realizara el dibujo centradas en alto
-      noise_horizontal = self.noise_horizontal # Irregularidad porcentual horizontal maxima
-      noise_vertical = self.noise_vertical # Irregularidad porcentual veartical maxima
-      unit = obs_heigth + distanceBetweenObservations# Espacio a considerar por observación
-      posiciones = []
-      for i in range(n_observations):
-        pos_y = (alto/2) - (n_observations/2)*unit + unit/2 + i*unit
-        coor = {
-          "x": ancho/2 + rng.uniform(-noise_horizontal, noise_horizontal),
-          "y": pos_y + rng.uniform(-noise_vertical, noise_vertical),
-        }
-        posiciones.append(coor)
-      # eliminar posiciones con probabilidad 0.10
-      posiciones_filtradas = [t for t in posiciones if rng.random() > 0.10]
-      # garantizar que quede al menos 1
-      if len(posiciones_filtradas) == 0 and len(posiciones) > 0:
-        posiciones_filtradas.append(posiciones[int(rng.integers(0, len(posiciones)))])
-      posiciones = posiciones_filtradas
-
-      ### Dibujar ###
-      labels = []
-      for coor in posiciones:
-        img, _obs, _mask, label = draw_observation(
-          img=img,
-          x=coor["x"], 
-          y=coor["y"],
-          width=int(obs_width),
-          height=int(obs_heigth),
-          opening=openingLamp,
-          distanceBetweenParts=distanceBetweenParts,
-          angle=angle,
-          baseGrey=gray_value,
-          inplace=True,
-          debug=False,
-          rng=rng,
-        )
-        labels.append(label)
-
-      ### Bordes de la placa ###
-      if(self.prob_edge > 0 and rng.random() < self.prob_edge):
-        [x_min, x_max, y_min, y_max ] = edges_of_labels_relxywh(labels, alto, ancho)
-        side = [Position.RIGHT, Position.LEFT, Position.TOP, Position.BOTTOM][int(rng.integers(0, 4))]
-        img = add_plate_edge(img, (x_min, x_max, y_min, y_max), side, rng=rng)
-
-      ### Ruido y manchas ###
-      # Ruido gaussiano general para la imagen de la placa
-      gaussian_std = rng.uniform(*self.gaussian_std_range)
-      # Ruido de banda horizontal
-      band_intensity = rng.uniform(*self.band_intensity_range)
-      # Cantidad de manchas de polvo
-      speck_count = int(rng.integers(self.speck_count_range[0], self.speck_count_range[1] + 1))
-      # Radio maximo de las manchas de polvo
-      speck_size = int(rng.integers(self.speck_size_range[0], self.speck_size_range[1] + 1))
-      # Nivel del desenfoque gaussiano
-      blur_kernel_size = self.blur_kernel_size_options[int(rng.integers(0, len(self.blur_kernel_size_options)))]
-      # Cantidad de manchas alargadas tipo "violín"
-      violin_line_count = rng.choice(
-          [0, 1, 2, 3],
-          p=[0.9, 0.09, 0.009, 0.001]
-        ) if self.violin_line_include else 0
-      # Intensidad de las manchas alargadas tipo "violín"
-      violin_intensity = rng.uniform(*self.violin_intensity_range)
-      # Añadir ruido en la imagen
-      img = add_realistic_noise(
-        img,
-        gaussian_std=gaussian_std,
-        band_intensity=band_intensity,
-        speck_count=speck_count,
-        speck_size=speck_size,
-        blur_ksize=blur_kernel_size,
-        violin_line_count=violin_line_count,
-        violin_intensity=violin_intensity,
-        violin_length_range=self.violin_length_range,
-        rng=rng,
-      )
+      img, labels = self.generar_placa(rng)
 
       # Redimensionar imagen y recien ahi expandir a tres canales, que es lo que esperan
       # los modelos de deteccion con backbone preentrenado.
