@@ -19,12 +19,13 @@ src/gsssp/
   drawing.py                         draw_observation: dibuja una observación
   spectra.py                         spectral_function, Fading, planck_like
   noise.py                           add_realistic_noise, add_plate_edge, Position
-  labels.py                          formateadores yolov11, edges_of_labels_relxywh
+  labels.py                          formateadores yolov11, LabelClass, LabelFormat
   geometry.py                        cajas envolventes y camino OBB (ObservationLimit)
   debug.py                           visualize_observations
   generators/
     __init__.py
-    spectrumLabeledSequence.py       keras.utils.Sequence que produce lotes (imagen, etiquetas)
+    spectrumLabeledSequence.py       lotes de placas enteras; generar_placa() es el nucleo compartido
+    observationCropSequence.py       lotes de recortes de una observacion, etiquetados por componente
 src/test.py                          script manual de debug de define_observations_limits
 generator_save_images_example.py     ejemplo: volcar un dataset a disco
 assets/                              imágenes del README
@@ -42,7 +43,11 @@ por clase (`observacion` / `science` / `lamp`). No es deuda accidental:
   lo llama, pero **el resultado todavía no se usa aguas abajo**: las observaciones se siguen
   posicionando con el código viejo. Conectarlo es el próximo paso.
 - `define_observation_components_limits()` y `ObservationLimit.define_components_limits()`
-  son `pass`.
+  son `pass`. **No hacen falta para las etiquetas de componente**: esas salen de los
+  `rectParts` de `draw_observation`, que son los mismos rectángulos que pintan las máscaras.
+  Este camino de `geometry.py` es la versión paralela, pensada para cuando el posicionamiento
+  pase a derivarse de `define_observations_limits()`.
+
 ### Convención de ángulo
 
 **Ángulo positivo = la observación baja hacia la derecha**, igual que `cv2.RotatedRect`
@@ -125,7 +130,24 @@ el default, o `LabelFormat.OBB`). Cambia la cantidad de valores por caja en el l
 **El orden de las esquinas OBB no importa.** Yolo deriva la caja con `cv2.minAreaRect`, que
 es independiente del orden de los puntos — verificado sobre las 24 permutaciones posibles.
 
-Clases previstas: `observacion`, `science`, `lamp`.
+Clases: `observacion` (0), `science` (1), `lamp` (2), en el enum `LabelClass`. Los índices
+son fijos y no se compactan según la selección, para que el `data.yaml` de Yolo no dependa
+de la configuración de la corrida. Se elige qué clases etiquetar con `label_classes`.
+
+## Los dos generadores
+
+| generador | produce | etiqueta por defecto |
+|---|---|---|
+| `SpectrumLabeledSequence` | placas enteras | `observacion` |
+| `ObservationCropSequence` | recortes de una observación | `science` y `lamp` |
+
+Son dos porque alimentan modelos distintos: uno detecta observaciones sobre la placa, el
+otro detecta componentes dentro de una observación ya recortada. El segundo hereda del
+primero y reusa `generar_placa()`, así que comparten todos los parámetros de generación.
+
+En los recortes, **los componentes de observaciones vecinas quedan sin etiquetar a
+propósito**: funcionan como negativos difíciles. Es la misma idea que el umbral de área
+visible de `split_dota` en Ultralytics.
 
 ---
 
