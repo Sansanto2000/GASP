@@ -196,7 +196,12 @@ def draw_observation(
     _paint_part(onlyObservation, ys, xs, lamp_function, partsOriginX, baseGrey)
 
     # Rotar espectro y mascara acorde a la cantidad de grados.
-    M = cv2.getRotationMatrix2D((x,y), angle, 1)
+    # El -angle alinea el dibujado con la convencion de cv2.RotatedRect: angulo positivo
+    # inclina la observacion hacia abajo a la derecha. Es la misma que usa cv2.minAreaRect,
+    # con la que Yolo deriva el angulo de una etiqueta OBB, asi que el angulo que se pide
+    # aca coincide en signo con el que el modelo aprende. getRotationMatrix2D usa el
+    # criterio opuesto (positivo = antihorario), de ahi el signo.
+    M = cv2.getRotationMatrix2D((x,y), -angle, 1)
     onlyObservation = cv2.warpAffine(onlyObservation, M, (img.shape[1], img.shape[0]))
     maskObservation = cv2.warpAffine(maskObservation, M, (img.shape[1], img.shape[0]))
 
