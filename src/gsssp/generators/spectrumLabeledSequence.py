@@ -12,7 +12,7 @@ from gsssp.geometry import (
     max_height_for_canvas,
     max_width_for_canvas,
 )
-from gsssp.labels import edges_of_labels_relxywh
+from gsssp.labels import LabelFormat, edges_of_labels_relxywh
 from gsssp.noise import Position, add_plate_edge, add_realistic_noise
 
 class OutputFormat(Enum):
@@ -50,6 +50,9 @@ class SpectrumLabeledSequence(Sequence):
   - batch_size: cantidad de elementos por lote.
   - resize_shape: dimensiones (ancho, alto) para las imagenes finales.
   - output_format: formato de datos de salida.
+  - label_format: esquema de etiqueta. LabelFormat.AABB produce 4 valores por caja
+  (centro y tamaño); LabelFormat.OBB produce 8 (las 4 esquinas de la caja inclinada).
+  Default AABB.
   - batchs_per_sequence: cantidad de lotes a producir en una secuencia.
   - seed: semilla base del generador. El lote se deriva de (seed, idx), asi que con la
   misma semilla la secuencia completa es reproducible. Default 0.
@@ -78,6 +81,7 @@ class SpectrumLabeledSequence(Sequence):
       violin_length_range = (0.05, 0.7),
       prob_edge = 0.1,
       output_format:OutputFormat = OutputFormat.LIST,
+      label_format:LabelFormat = LabelFormat.AABB,
       batchs_per_sequence = 100,
       seed = 0,
       **kwargs
@@ -103,6 +107,7 @@ class SpectrumLabeledSequence(Sequence):
     self.resize_shape = resize_shape
     self.violin_line_include = violin_line_include
     self.output_format = output_format
+    self.label_format = label_format
     self.batchs_per_sequence = batchs_per_sequence
     self.violin_intensity_range = violin_intensity_range
     self.violin_length_range = violin_length_range
@@ -249,16 +254,20 @@ class SpectrumLabeledSequence(Sequence):
       img = cv2.resize(img, (self.resize_shape[0], self.resize_shape[1]))
       batch_x.append(np.repeat(img[:, :, None], 3, axis=2))
       
-      # Ajustar formato
+      # Ajustar formato. Segun label_format cada caja son 4 valores (centro y tamaño)
+      # u 8 (las esquinas de la caja inclinada), que es lo que espera Yolo para OBB.
       boxes_img = []
       classes_img = []
       for label in labels:
-          boxes_img.append([
-              label['x_center_norm'],
-              label['y_center_norm'],
-              label['width_norm'],
-              label['height_norm']
-          ])
+          if self.label_format is LabelFormat.OBB:
+              boxes_img.append(list(label['corners_norm']))
+          else:
+              boxes_img.append([
+                  label['x_center_norm'],
+                  label['y_center_norm'],
+                  label['width_norm'],
+                  label['height_norm']
+              ])
           classes_img.append(label['class_id'])
       batch_y.append({
           "boxes": boxes_img,
