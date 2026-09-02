@@ -43,8 +43,18 @@ por clase (`observacion` / `science` / `lamp`). No es deuda accidental:
   posicionando con el código viejo. Conectarlo es el próximo paso.
 - `define_observation_components_limits()` y `ObservationLimit.define_components_limits()`
   son `pass`.
-- **Antes de conectarlo hay que decidir la convención de signo del ángulo**: `cv2.boxPoints`
-  y `cv2.getRotationMatrix2D` rotan al revés, y hoy el AABB tapa el error porque es simétrico.
+### Convención de ángulo
+
+**Ángulo positivo = la observación baja hacia la derecha**, igual que `cv2.RotatedRect`
+(`boxPoints`, `minAreaRect`). Yolo deriva el ángulo de una etiqueta OBB con `minAreaRect`,
+así que el ángulo que se pide coincide en signo con el que el modelo aprende y predice.
+
+`cv2.getRotationMatrix2D` usa el criterio opuesto (positivo = antihorario), por eso
+`draw_observation` la llama con `-angle`. No es un parche: es la traducción entre las dos
+convenciones de OpenCV, que están documentadas así y ninguna es incorrecta.
+
+El AABB es simétrico ante el cambio de signo, así que las etiquetas `rel_xywh` no dependen
+de esta decisión — pero las OBB sí.
 
 ### Convenciones de código
 
