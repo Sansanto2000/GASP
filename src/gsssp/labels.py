@@ -12,6 +12,21 @@ class LabelFormat(Enum):
     OBB = 1
 
 
+def _clase(class_id) -> int:
+    """Normaliza el indice de clase a entero.
+
+    Las etiquetas salen del tensor del generador, que es float32, asi que la clase llega
+    como 0.0 y sin esto se escribiria asi en el archivo. El formato Yolo espera un entero.
+    Se redondea en vez de truncar para no perder un indice por error de representacion.
+
+    Parametros:
+    - class_id: indice de clase, entero o flotante.
+
+    Return:
+    - {int}: indice de clase como entero.
+    """
+    return int(round(float(class_id)))
+
 def _yolov11_aabb(class_id, x_center, y_center, width, height) -> str:
     """Arma la linea de texto de una etiqueta AABB en formato Yolov11.
 
@@ -19,14 +34,15 @@ def _yolov11_aabb(class_id, x_center, y_center, width, height) -> str:
     extraen los campos y delegan aca. Su hermana para OBB es `_yolov11_obb`.
 
     Parametros:
-    - class_id: indice de la clase etiquetada.
+    - class_id: indice de la clase etiquetada. Se emite como entero: el tensor de salida
+    del generador es float32, y una clase escrita como "0.0" no respeta el formato.
     - x_center, y_center: centro normalizado [0-1].
     - width, height: dimensiones normalizadas [0-1].
 
     Return:
     - {str}: informacion de la etiqueta en formato textual.
     """
-    return f"{class_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}"
+    return f"{_clase(class_id)} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}"
 
 def _yolov11_obb(class_id, corners) -> str:
     """Arma la linea de texto de una etiqueta OBB en formato Yolov11.
@@ -34,7 +50,7 @@ def _yolov11_obb(class_id, corners) -> str:
     Hermana de `_yolov11_aabb`: unico lugar donde vive el formato de 4 esquinas.
 
     Parametros:
-    - class_id: indice de la clase etiquetada.
+    - class_id: indice de la clase etiquetada. Se emite como entero, igual que en AABB.
     - corners {Sequence[Number]}: 8 valores normalizados [0-1], como
     x1, y1, x2, y2, x3, y3, x4, y4. El orden de las esquinas no importa: Yolo deriva
     la caja con cv2.minAreaRect, que es independiente del orden de los puntos.
@@ -44,7 +60,7 @@ def _yolov11_obb(class_id, corners) -> str:
     """
     if len(corners) != 8:
         raise ValueError(f"Una etiqueta OBB necesita 8 valores, se recibieron {len(corners)}.")
-    return f"{class_id} " + " ".join(f"{c:.6f}" for c in corners)
+    return f"{_clase(class_id)} " + " ".join(f"{c:.6f}" for c in corners)
 
 def label_dict_to_yolov11_aabb_format(label) -> str:
     """Recibe la informacion de una etiqueta en formato dict y la convierte a un
