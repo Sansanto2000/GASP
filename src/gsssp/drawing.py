@@ -125,6 +125,16 @@ def draw_observation(
         "y_center_norm":((y_coords.min() + y_coords.max())/2)/img_height,
         "width_norm": labelForGraph["width"] / img_width,
         "height_norm": labelForGraph["height"] / img_height,
+        # Esquinas de la observacion inclinada, normalizadas, para etiquetas OBB.
+        # Son las mismas que produce boxPoints sobre rectObservation, que desde que el
+        # dibujado sigue la convencion de RotatedRect describen exactamente los pixeles
+        # que se pintan. El orden es el que devuelve boxPoints; Yolo lo ignora porque
+        # deriva la caja con minAreaRect, que no depende del orden de los puntos.
+        "corners_norm": [
+            coord
+            for punto in boxObservation
+            for coord in (punto[0] / img_width, punto[1] / img_height)
+        ],
     }
 
     if (debug):
