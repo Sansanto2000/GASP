@@ -1,4 +1,16 @@
 """Conversion de etiquetas a los formatos de texto que consumen los modelos."""
+from enum import Enum
+
+
+class LabelFormat(Enum):
+    """Esquema de etiqueta a producir.
+
+    - AABB: `<class> <x> <y> <w> <h>`, caja alineada a los ejes.
+    - OBB: `<class> <x1> <y1> ... <x4> <y4>`, las 4 esquinas de la caja inclinada.
+    """
+    AABB = 0
+    OBB = 1
+
 
 def _yolov11(class_id, x_center, y_center, width, height) -> str:
     """Arma la linea de texto de una etiqueta AABB en formato Yolov11.
@@ -15,6 +27,24 @@ def _yolov11(class_id, x_center, y_center, width, height) -> str:
     - {str}: informacion de la etiqueta en formato textual.
     """
     return f"{class_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}"
+
+def _yolov11_obb(class_id, corners) -> str:
+    """Arma la linea de texto de una etiqueta OBB en formato Yolov11.
+
+    Hermana de `_yolov11`: unico lugar donde vive el formato de 4 esquinas.
+
+    Parametros:
+    - class_id: indice de la clase etiquetada.
+    - corners {Sequence[Number]}: 8 valores normalizados [0-1], como
+    x1, y1, x2, y2, x3, y3, x4, y4. El orden de las esquinas no importa: Yolo deriva
+    la caja con cv2.minAreaRect, que es independiente del orden de los puntos.
+
+    Return:
+    - {str}: informacion de la etiqueta en formato textual.
+    """
+    if len(corners) != 8:
+        raise ValueError(f"Una etiqueta OBB necesita 8 valores, se recibieron {len(corners)}.")
+    return f"{class_id} " + " ".join(f"{c:.6f}" for c in corners)
 
 def label_dict_to_yolov11_format(label) -> str:
     """Recibe la informacion de una etiqueta en formato dict y la convierte a un
@@ -42,6 +72,31 @@ def label_list_to_yolov11_format(label) -> str:
     - {str}: información de la etiqueta en formato textual
     """
     return _yolov11(label[0], label[1], label[2], label[3], label[4])
+
+def label_dict_to_yolov11_obb_format(label) -> str:
+    """Recibe la informacion de una etiqueta en formato dict y la convierte a un
+    string en formato Yolov11 OBB.
+
+    Parametros:
+    - label {dict[str, Number]}: informacion de la etiqueta a parsear. Debe traer
+    la clave `corners_norm`, que produce `draw_observation`.
+
+    Return:
+    - {str}: información de la etiqueta en formato textual
+    """
+    return _yolov11_obb(label["class_id"], label["corners_norm"])
+
+def label_list_to_yolov11_obb_format(label) -> str:
+    """Recibe la informacion de una etiqueta en formato list y la convierte a un
+    string en formato Yolov11 OBB.
+
+    Parametros:
+    - label {Sequence[Number]}: clase seguida de las 8 coordenadas normalizadas.
+
+    Return:
+    - {str}: información de la etiqueta en formato textual
+    """
+    return _yolov11_obb(label[0], label[1:9])
 
 def edges_of_labels_relxywh(labels, alto, ancho):
     """dado un conjunto de etiquetas en formato dict relxywh y un

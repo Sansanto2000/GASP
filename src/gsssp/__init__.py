@@ -15,9 +15,12 @@ from .noise import Position, add_plate_edge, add_realistic_noise
 
 # Etiquetas
 from .labels import (
+    LabelFormat,
     edges_of_labels_relxywh,
     label_dict_to_yolov11_format,
+    label_dict_to_yolov11_obb_format,
     label_list_to_yolov11_format,
+    label_list_to_yolov11_obb_format,
 )
 
 # Geometria (camino OBB)
@@ -49,9 +52,12 @@ __all__ = [
     "add_plate_edge",
     "add_realistic_noise",
     # etiquetas
+    "LabelFormat",
     "edges_of_labels_relxywh",
     "label_dict_to_yolov11_format",
+    "label_dict_to_yolov11_obb_format",
     "label_list_to_yolov11_format",
+    "label_list_to_yolov11_obb_format",
     # geometria
     "ComponentLimit",
     "ObservationLimit",
