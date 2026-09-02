@@ -19,6 +19,9 @@ def add_realistic_noise(
 ) -> NDArray[np.uint8]:
     """Añadir ruido realista a una imagen.
 
+    Trabaja en escala de grises: recibe y devuelve un arreglo (alto, ancho). La expansion
+    a tres canales se hace una sola vez al final del pipeline, no en cada etapa.
+
     Parametros:
     - gaussian_std {float}?: ruido gaussiano. Simula imperfecciones naturales del sensor 
     o de la pelicula fotografica. Se basa en una distribucion normal o gaussiana. Default 10.0.
@@ -40,14 +43,11 @@ def add_realistic_noise(
     img_noisy = img.astype(np.float32)
 
     # 1. Ruido gaussiano (general)
-    # Monocromo: se sortea un valor por pixel y se broadcastea sobre los 3 canales, en vez
-    # de uno por canal. Una placa fotografica en blanco y negro no tiene ruido cromatico,
-    # y de paso son 3 veces menos muestras gaussianas, que es el grueso de esta funcion.
-    noise = rng.normal(0, gaussian_std, (*img.shape[:2], 1))
+    noise = rng.normal(0, gaussian_std, img.shape)
     img_noisy += noise
 
     # 2. Ruido en bandas horizontales (tiras verticales o líneas horizontales)
-    band = rng.normal(0, band_intensity, (img.shape[0], 1, 1))
+    band = rng.normal(0, band_intensity, (img.shape[0], 1))
     img_noisy += band
 
     # 3. Puntos blancos o manchas (tipo polvo o defecto)
@@ -56,7 +56,7 @@ def add_realistic_noise(
         cy = rng.integers(0, img.shape[0])
         radius = 1 if speck_size <= 1 else rng.integers(1, speck_size)
         color = rng.integers(150, 255)  # blanco sucio
-        cv2.circle(img_noisy, (int(cx), int(cy)), int(radius), (int(color),) * 3, cv2.FILLED)
+        cv2.circle(img_noisy, (int(cx), int(cy)), int(radius), int(color), cv2.FILLED)
 
     # 4. Manchas alargadas
     violin_sigma: float = 6.0
@@ -84,8 +84,8 @@ def add_realistic_noise(
                 ((eje_x - x0) ** 2) / (2 * sigma_x ** 2)
             )
         )
-        # Aplicar. El eje extra broadcastea sobre los 3 canales sin copiar la gaussiana.
-        img_noisy += gaussian_2d[:, :, None]
+        # Aplicar
+        img_noisy += gaussian_2d
 
     # 5. Desenfoque suave (simula ópticas imperfectas)
     if blur_ksize >= 3 and blur_ksize % 2 == 1:
@@ -104,6 +104,8 @@ class Position(Enum):
 
 def add_plate_edge(img, edges, position:Position, *, rng:np.random.Generator = None):
     """Agrega un borde a la placa basado en los limites de las etiquetas.
+
+    Trabaja en escala de grises: recibe y devuelve un arreglo (alto, ancho).
 
     Args:
         img (NDArray[np.uint8]): imagen a modificar.
@@ -125,7 +127,7 @@ def add_plate_edge(img, edges, position:Position, *, rng:np.random.Generator = N
     margin = 0.7
     # color del fondo "de atrás"
     gray = int(rng.integers(50, 156))
-    bg_color = (gray, gray, gray)
+    bg_color = gray
     # color de la línea límite
     angle_noise = int(min(w, h) * 0.02)
     shift = int(rng.integers(-angle_noise, angle_noise + 1))

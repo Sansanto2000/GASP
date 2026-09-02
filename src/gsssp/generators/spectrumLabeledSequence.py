@@ -131,9 +131,11 @@ class SpectrumLabeledSequence(Sequence):
       # Dimensiones.
       alto = int(rng.integers(self.height_range[0], self.height_range[1] + 1))
       ancho = int(rng.integers(self.width_range[0], self.width_range[1] + 1))
-      # Imagen base oscura completa.
+      # Imagen base oscura completa. Se trabaja en escala de grises: la placa es monocroma,
+      # asi que arrastrar tres canales identicos durante el pipeline triplica memoria y
+      # computo sin agregar informacion. La expansion a tres canales se hace al final.
       gray_value = int(rng.integers(self.gray_value_range[0]*255, self.gray_value_range[1]*255))
-      img = np.full((alto, ancho, 3), gray_value, dtype=np.uint8)
+      img = np.full((alto, ancho), gray_value, dtype=np.uint8)
       
       ### Definir limites de las observaciones ###
       observations_limits = define_observations_limits(alto, ancho, rng)
@@ -242,9 +244,10 @@ class SpectrumLabeledSequence(Sequence):
         rng=rng,
       )
 
-      # Redimensionar imagen
+      # Redimensionar imagen y recien ahi expandir a tres canales, que es lo que esperan
+      # los modelos de deteccion con backbone preentrenado.
       img = cv2.resize(img, (self.resize_shape[0], self.resize_shape[1]))
-      batch_x.append(img)
+      batch_x.append(np.repeat(img[:, :, None], 3, axis=2))
       
       # Ajustar formato
       boxes_img = []
