@@ -23,7 +23,7 @@ def _paint_part(canvas, ys, xs, spectrum_function, originX, baseGrey):
         return
     intensities = spectrum_function(xs - originX)
     intensities = np.maximum(intensities, baseGrey).astype(np.uint8)
-    canvas[ys, xs] = intensities[:, None]
+    canvas[ys, xs] = intensities
 
 def draw_observation(
         img: NDArray[np.uint8], 
@@ -35,6 +35,8 @@ def draw_observation(
     """Funcion que recibe la informacion de una imagen en formato
     matricial y dibuja una observacion en la misma acorde a las 
     cordenadas especificadas.
+    Trabaja en escala de grises: recibe y devuelve arreglos (alto, ancho). La expansion
+    a tres canales se hace una sola vez al final del pipeline, no en cada etapa.
     IMPORTANTE: a menos que se especifique la funcion modifica la 
     matriz recibida en vez de hacer una copia.
     IMPORTANTE: se espera que la imagen base sea oscura, para pintar
@@ -130,7 +132,7 @@ def draw_observation(
             img,
             (labelForGraph["x"], labelForGraph["y"]),
             (labelForGraph["x"] + labelForGraph["width"], labelForGraph["y"] + labelForGraph["height"]), 
-            (255,0,0), thickness=3
+            255, thickness=3
         )
 
     # Mascara para cada parte del espectro.
@@ -159,7 +161,7 @@ def draw_observation(
     partsWidth = int(partsX.max() - partsX.min()) + 1
 
     # Pintar espectro de ciencia
-    onlyObservation = np.zeros((*img.shape[:2], 3), dtype=np.uint8)
+    onlyObservation = np.zeros(img.shape[:2], dtype=np.uint8)
     ys, xs = np.where(maskParts["science"] == 255)
     vertical_noise_level = rng.uniform(0,0.05)
     science_function = spectral_function(
@@ -199,9 +201,6 @@ def draw_observation(
     maskObservation = cv2.warpAffine(maskObservation, M, (img.shape[1], img.shape[0]))
 
     # Fusionar con la imagen recibida
-    # mask = maskObservation > 0  # shape: (H, W), dtype: bool
-    # mask_3ch = np.stack([mask] * 3, axis=-1)  # shape: (H, W, 3)
-    # img = np.where(mask_3ch, onlyObservation, img)    # Pintar observacion arriba
     img = np.maximum(img, onlyObservation)  # Quedarse con los pixeles mas altos.
 
     return img, onlyObservation, maskObservation, labelObservation
