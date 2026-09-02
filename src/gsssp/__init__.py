@@ -39,6 +39,7 @@ from .geometry import (
 from .debug import visualize_observations
 
 # Generador compatible con tensorflow
+from .generators.observationCropSequence import ObservationCropSequence
 from .generators.spectrumLabeledSequence import OutputFormat, SpectrumLabeledSequence
 
 __all__ = [
@@ -70,7 +71,8 @@ __all__ = [
     "rotated_aabb",
     # depuracion
     "visualize_observations",
-    # generador
+    # generadores
+    "ObservationCropSequence",
     "OutputFormat",
     "SpectrumLabeledSequence",
 ]
