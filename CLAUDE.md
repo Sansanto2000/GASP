@@ -65,6 +65,11 @@ por clase (`observacion` / `science` / `lamp`). No es deuda accidental:
   mismo patrón; volver a los globales rompe la reproducibilidad y el paralelismo.
 - Parámetros del generador: todos *keyword-only*, con rangos como tuplas `(min, max)`.
   Al agregar uno, sumarlo también al docstring de `__init__` y a `self.<nombre>`.
+- Canales: el pipeline trabaja **en escala de grises**, con arreglos `(alto, ancho)`. La placa
+  es monocroma, así que arrastrar tres canales idénticos triplica memoria y cómputo sin
+  agregar información. La expansión a `(alto, ancho, 3)` se hace **una sola vez**, al final
+  de `__getitem__`, porque es lo que esperan los backbones preentrenados. `debug.py` es la
+  excepción: dibuja en color a propósito, para distinguir esquinas y ejes.
 
 ## Entorno
 
