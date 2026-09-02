@@ -12,7 +12,7 @@ from gsssp.geometry import (
     max_height_for_canvas,
     max_width_for_canvas,
 )
-from gsssp.labels import LabelFormat, edges_of_labels_relxywh
+from gsssp.labels import LabelClass, LabelFormat, edges_of_labels_relxywh
 from gsssp.noise import Position, add_plate_edge, add_realistic_noise
 
 class OutputFormat(Enum):
@@ -50,6 +50,10 @@ class SpectrumLabeledSequence(Sequence):
   - batch_size: cantidad de elementos por lote.
   - resize_shape: dimensiones (ancho, alto) para las imagenes finales.
   - output_format: formato de datos de salida.
+  - label_classes: clases a etiquetar, como tupla de LabelClass. Por defecto solo
+  LabelClass.OBSERVATION. Sumando SCIENCE y LAMP se etiquetan tambien los componentes
+  de cada observacion: el espectro de ciencia y las dos lamparas de comparacion.
+  Los indices de clase son fijos (0, 1, 2) y no se compactan segun la seleccion.
   - label_format: esquema de etiqueta. LabelFormat.AABB produce 4 valores por caja
   (centro y tamaño); LabelFormat.OBB produce 8 (las 4 esquinas de la caja inclinada).
   Default AABB.
@@ -82,6 +86,7 @@ class SpectrumLabeledSequence(Sequence):
       prob_edge = 0.1,
       output_format:OutputFormat = OutputFormat.LIST,
       label_format:LabelFormat = LabelFormat.AABB,
+      label_classes = (LabelClass.OBSERVATION,),
       batchs_per_sequence = 100,
       seed = 0,
       **kwargs
@@ -108,6 +113,7 @@ class SpectrumLabeledSequence(Sequence):
     self.violin_line_include = violin_line_include
     self.output_format = output_format
     self.label_format = label_format
+    self.label_classes = tuple(label_classes)
     self.batchs_per_sequence = batchs_per_sequence
     self.violin_intensity_range = violin_intensity_range
     self.violin_length_range = violin_length_range
@@ -254,11 +260,20 @@ class SpectrumLabeledSequence(Sequence):
       img = cv2.resize(img, (self.resize_shape[0], self.resize_shape[1]))
       batch_x.append(np.repeat(img[:, :, None], 3, axis=2))
       
+      # Expandir cada observacion a las etiquetas pedidas: la observacion entera y/o
+      # sus componentes. draw_observation ya devuelve ambas cosas.
+      pedidas = {c.value for c in self.label_classes}
+      etiquetas = []
+      for label in labels:
+          if label['class_id'] in pedidas:
+              etiquetas.append(label)
+          etiquetas.extend(c for c in label['components'] if c['class_id'] in pedidas)
+
       # Ajustar formato. Segun label_format cada caja son 4 valores (centro y tamaño)
       # u 8 (las esquinas de la caja inclinada), que es lo que espera Yolo para OBB.
       boxes_img = []
       classes_img = []
-      for label in labels:
+      for label in etiquetas:
           if self.label_format is LabelFormat.OBB:
               boxes_img.append(list(label['corners_norm']))
           else:
