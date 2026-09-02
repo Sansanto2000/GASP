@@ -3,7 +3,54 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
+from gsssp.labels import LabelClass
 from gsssp.spectra import spectral_function
+
+def _rotar(corners, M):
+    """Aplica una matriz afin 2x3 a un conjunto de puntos (x, y).
+
+    Parametros:
+    - corners {NDArray}: puntos a transformar, con forma (N, 2).
+    - M {NDArray}: matriz afin 2x3, la que devuelve cv2.getRotationMatrix2D.
+
+    Return:
+    - {NDArray}: los puntos transformados, con forma (N, 2).
+    """
+    homogeneas = np.hstack([corners, np.ones((len(corners), 1))])
+    return (M @ homogeneas.T).T
+
+
+def _label_from_corners(class_id, corners, img_width, img_height):
+    """Arma una etiqueta a partir de las 4 esquinas de un rectangulo ya rotado.
+
+    Devuelve las dos representaciones a la vez: la caja alineada a los ejes que las
+    envuelve (`x_center_norm` y compania) y las esquinas normalizadas (`corners_norm`).
+    Cual se usa depende del `label_format` del generador, pero calcularlas juntas evita
+    que se desincronicen.
+
+    Parametros:
+    - class_id {int}: indice de la clase etiquetada.
+    - corners {NDArray}: 4 puntos (x, y) del rectangulo, en pixeles.
+    - img_width {int}: ancho de la imagen, para normalizar.
+    - img_height {int}: alto de la imagen, para normalizar.
+
+    Return:
+    - {dict[str, Number]}: etiqueta con ambas representaciones.
+    """
+    xs_c, ys_c = corners[:, 0], corners[:, 1]
+    return {
+        "class_id": class_id,
+        "x_center_norm": ((xs_c.min() + xs_c.max()) / 2) / img_width,
+        "y_center_norm": ((ys_c.min() + ys_c.max()) / 2) / img_height,
+        "width_norm": (xs_c.max() - xs_c.min()) / img_width,
+        "height_norm": (ys_c.max() - ys_c.min()) / img_height,
+        "corners_norm": [
+            coord
+            for punto in corners
+            for coord in (punto[0] / img_width, punto[1] / img_height)
+        ],
+    }
+
 
 def _paint_part(canvas, ys, xs, spectrum_function, originX, baseGrey):
     """Pinta de una sola vez todos los pixeles de una parte de la observacion.
@@ -102,6 +149,16 @@ def draw_observation(
         "science": np.int32(cv2.boxPoints(rectParts["science"])),
     }
     
+    # Matriz que rota la observacion. La usan dos cosas: las etiquetas de los componentes
+    # y el warpAffine que rota los pixeles al final. Derivar las esquinas con esta misma
+    # matriz garantiza que la etiqueta describa exactamente lo que se pinta.
+    # El -angle alinea el dibujado con la convencion de cv2.RotatedRect: angulo positivo
+    # inclina la observacion hacia abajo a la derecha. Es la misma que usa cv2.minAreaRect,
+    # con la que Yolo deriva el angulo de una etiqueta OBB, asi que el angulo que se pide
+    # aca coincide en signo con el que el modelo aprende. getRotationMatrix2D usa el
+    # criterio opuesto (positivo = antihorario), de ahi el signo.
+    M = cv2.getRotationMatrix2D((x,y), -angle, 1)
+
     # Obtener las esquinas del rectángulo de observacion
     boxObservation = cv2.boxPoints(rectObservation)
     boxObservation = np.int32(boxObservation)
@@ -119,23 +176,20 @@ def draw_observation(
 
     # Preparar etiquetas en formato yolov11 para reportar al usuario
     img_height, img_width = img.shape[:2]
-    labelObservation: dict[str, Number] = {
-        "class_id": 0,
-        "x_center_norm":((x_coords.min() + x_coords.max())/2)/img_width,
-        "y_center_norm":((y_coords.min() + y_coords.max())/2)/img_height,
-        "width_norm": labelForGraph["width"] / img_width,
-        "height_norm": labelForGraph["height"] / img_height,
-        # Esquinas de la observacion inclinada, normalizadas, para etiquetas OBB.
-        # Son las mismas que produce boxPoints sobre rectObservation, que desde que el
-        # dibujado sigue la convencion de RotatedRect describen exactamente los pixeles
-        # que se pintan. El orden es el que devuelve boxPoints; Yolo lo ignora porque
-        # deriva la caja con minAreaRect, que no depende del orden de los puntos.
-        "corners_norm": [
-            coord
-            for punto in boxObservation
-            for coord in (punto[0] / img_width, punto[1] / img_height)
-        ],
-    }
+    labelObservation = _label_from_corners(
+        LabelClass.OBSERVATION.value, boxObservation, img_width, img_height
+    )
+    # Etiquetas de cada componente. Las esquinas salen de los mismos rectangulos que
+    # pintan las mascaras, rotadas con la M que rota los pixeles, asi que describen
+    # exactamente lo que se dibuja. Las dos lamparas comparten la clase LAMP.
+    labelObservation["components"] = [
+        _label_from_corners(clase.value, _rotar(boxParts[parte], M), img_width, img_height)
+        for parte, clase in (
+            ("science", LabelClass.SCIENCE),
+            ("lamp1", LabelClass.LAMP),
+            ("lamp2", LabelClass.LAMP),
+        )
+    ]
 
     if (debug):
         cv2.rectangle(   # Etiqueta (Caja delimitadora)
@@ -205,13 +259,7 @@ def draw_observation(
     ys, xs = np.where(maskParts["lamp2"] == 255)
     _paint_part(onlyObservation, ys, xs, lamp_function, partsOriginX, baseGrey)
 
-    # Rotar espectro y mascara acorde a la cantidad de grados.
-    # El -angle alinea el dibujado con la convencion de cv2.RotatedRect: angulo positivo
-    # inclina la observacion hacia abajo a la derecha. Es la misma que usa cv2.minAreaRect,
-    # con la que Yolo deriva el angulo de una etiqueta OBB, asi que el angulo que se pide
-    # aca coincide en signo con el que el modelo aprende. getRotationMatrix2D usa el
-    # criterio opuesto (positivo = antihorario), de ahi el signo.
-    M = cv2.getRotationMatrix2D((x,y), -angle, 1)
+    # Rotar espectro y mascara acorde a la cantidad de grados, con la M de mas arriba.
     onlyObservation = cv2.warpAffine(onlyObservation, M, (img.shape[1], img.shape[0]))
     maskObservation = cv2.warpAffine(maskObservation, M, (img.shape[1], img.shape[0]))
 
