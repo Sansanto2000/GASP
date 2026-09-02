@@ -15,6 +15,7 @@ from .noise import Position, add_plate_edge, add_realistic_noise
 
 # Etiquetas
 from .labels import (
+    LabelClass,
     LabelFormat,
     edges_of_labels_relxywh,
     label_dict_to_yolov11_aabb_format,
@@ -52,6 +53,7 @@ __all__ = [
     "add_plate_edge",
     "add_realistic_noise",
     # etiquetas
+    "LabelClass",
     "LabelFormat",
     "edges_of_labels_relxywh",
     "label_dict_to_yolov11_aabb_format",
