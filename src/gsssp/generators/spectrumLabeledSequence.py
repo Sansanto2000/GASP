@@ -13,7 +13,7 @@ from gsssp.geometry import (
     max_width_for_canvas,
 )
 from gsssp.labels import LabelClass, LabelFormat, edges_of_labels_relxywh
-from gsssp.noise import Position, add_plate_edge, add_realistic_noise
+from gsssp.noise import Position, add_background_field, add_plate_edge, add_realistic_noise
 
 class OutputFormat(Enum):
   LIST = 0
@@ -41,6 +41,12 @@ class SpectrumLabeledSequence(Sequence):
   - noise_horizontal: porcentaje de desviacion horizontal para el centro de una observacion.
   - noise_vertical: porcentaje de desviacion horizontal para el centro de una observacion.
   - gaussian_std_range: rango de ruido gaussiano general par la imagen generada.
+  - grain_std_range: rango de intensidad del grano de emulsion, ruido de baja escala
+  espacialmente correlacionado (a diferencia del ruido gaussiano de gaussian_std_range,
+  que es independiente por pixel).
+  - field_amplitude_range: rango de amplitud del campo de iluminacion de baja
+  frecuencia que se aplica al canvas antes de dibujar las observaciones. Simula
+  iluminacion despareja o vineteado del escaner. 0 no aplica ningun efecto.
   - band_intensity_range: rango de ruido de banda horizontal.
   - speck_count_range: rango de cantidad de manchas de polvo.
   - speck_size_range: rango de tamaño de las manchas de polvo.
@@ -73,8 +79,10 @@ class SpectrumLabeledSequence(Sequence):
       cant_observations_max = 5,
       noise_horizontal = 0.01, 
       noise_vertical = 0.01, 
-      gaussian_std_range= (4.0, 16.0), 
-      band_intensity_range = (0.0, 1.0), 
+      gaussian_std_range= (4.0, 16.0),
+      grain_std_range = (0.0, 15.0),
+      field_amplitude_range = (0.0, 0.12),
+      band_intensity_range = (0.0, 1.0),
       speck_count_range = (0, 10), 
       speck_size_range = (1,5), 
       blur_kernel_size_options = [1, 3, 5, 7, 9, 11, 13, 15],
@@ -104,6 +112,8 @@ class SpectrumLabeledSequence(Sequence):
     self.noise_horizontal = noise_horizontal
     self.noise_vertical = noise_vertical
     self.gaussian_std_range = gaussian_std_range
+    self.grain_std_range = grain_std_range
+    self.field_amplitude_range = field_amplitude_range
     self.band_intensity_range = band_intensity_range
     self.speck_count_range = speck_count_range
     self.speck_size_range = speck_size_range
@@ -147,7 +157,11 @@ class SpectrumLabeledSequence(Sequence):
     # computo sin agregar informacion. La expansion a tres canales se hace al final.
     gray_value = int(rng.integers(self.gray_value_range[0]*255, self.gray_value_range[1]*255))
     img = np.full((alto, ancho), gray_value, dtype=np.uint8)
-    
+    # Campo de iluminacion de baja frecuencia, multiplicativo. Se aplica antes de dibujar
+    # las observaciones para que el gradiente tambien las afecte a ellas.
+    field_amplitude = rng.uniform(*self.field_amplitude_range)
+    img = add_background_field(img, field_amplitude, rng=rng)
+
     ### Definir limites de las observaciones ###
     observations_limits = define_observations_limits(alto, ancho, rng)
 
@@ -226,6 +240,8 @@ class SpectrumLabeledSequence(Sequence):
     ### Ruido y manchas ###
     # Ruido gaussiano general para la imagen de la placa
     gaussian_std = rng.uniform(*self.gaussian_std_range)
+    # Intensidad del grano de emulsion (ruido de baja escala correlacionado)
+    grain_std = rng.uniform(*self.grain_std_range)
     # Ruido de banda horizontal
     band_intensity = rng.uniform(*self.band_intensity_range)
     # Cantidad de manchas de polvo
@@ -245,6 +261,7 @@ class SpectrumLabeledSequence(Sequence):
     img = add_realistic_noise(
       img,
       gaussian_std=gaussian_std,
+      grain_std=grain_std,
       band_intensity=band_intensity,
       speck_count=speck_count,
       speck_size=speck_size,

@@ -11,7 +11,7 @@ from .drawing import draw_observation
 from .spectra import Fading, planck_like, spectral_function
 
 # Ruido de escaneo y bordes de placa
-from .noise import Position, add_plate_edge, add_realistic_noise
+from .noise import Position, add_background_field, add_plate_edge, add_realistic_noise
 
 # Etiquetas
 from .labels import (
@@ -51,6 +51,7 @@ __all__ = [
     "spectral_function",
     # ruido
     "Position",
+    "add_background_field",
     "add_plate_edge",
     "add_realistic_noise",
     # etiquetas
