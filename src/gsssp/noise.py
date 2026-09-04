@@ -5,6 +5,44 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
+def add_background_field(
+    img: NDArray[np.uint8],
+    amplitude: float,
+    grid: int = 8,
+    *, rng: np.random.Generator = None
+) -> NDArray[np.uint8]:
+    """Aplica un campo de iluminacion de baja frecuencia, multiplicativo.
+
+    Simula iluminacion despareja, vineteado optico y velo quimico desigual: efectos de
+    baja frecuencia y bidireccionales que una placa fotografica escaneada real presenta
+    y que el ruido de alta frecuencia de add_realistic_noise no cubre. Se aplica sobre
+    el canvas antes de dibujar las observaciones, para que el gradiente las afecte
+    tambien a ellas, como pasa fisicamente cuando la iluminacion del escaner es
+    despareja.
+
+    Se genera ruido en una grilla chica (grid x grid) y se escala al tamaño de la
+    imagen con interpolacion bicubica, en vez de ruido por pixel, porque es lo que
+    da la variacion de gran escala sin necesidad de otra dependencia.
+
+    Parametros:
+    - amplitude {float}: amplitud del campo. 0 no aplica ningun efecto (el canvas
+    queda igual que antes). Valores mas altos oscurecen o aclaran zonas grandes de
+    la placa de forma mas marcada.
+    - grid {int}?: tamaño de la grilla base antes de interpolar. Default 8.
+    - rng {np.random.Generator}?: generador aleatorio a usar. Si no se pasa se crea
+    uno sin semilla.
+    """
+    if amplitude <= 0:
+        return img
+
+    if rng is None:
+        rng = np.random.default_rng()
+
+    h, w = img.shape[:2]
+    small = rng.normal(1.0, amplitude, (grid, grid)).astype(np.float32)
+    field = cv2.resize(small, (w, h), interpolation=cv2.INTER_CUBIC)
+    return np.clip(img.astype(np.float32) * field, 0, 255).astype(np.uint8)
+
 def add_realistic_noise(
     img: NDArray[np.uint8],
     gaussian_std: float = 10.0,
@@ -15,6 +53,7 @@ def add_realistic_noise(
     violin_line_count: int = 0,
     violin_intensity = 0.7,
     violin_length_range = (0.05, 0.7),
+    grain_std: float = 0.0,
     *, rng: np.random.Generator = None
 ) -> NDArray[np.uint8]:
     """Añadir ruido realista a una imagen.
@@ -32,8 +71,11 @@ def add_realistic_noise(
     u otro valor invalido no se aplica ningun desenfoque. Default 3.
     - violin_line_count {int}?: cantidad de manchas alargadas tipo "violín" a simular. Default 0.
     - violin_intensity {float}?: intensidad de las manchas alargadas tipo "violín". Default 0.7.
-    - violin_length_range {Tuple[float, float]}?: rango porcentual de longitud de las manchas 
+    - violin_length_range {Tuple[float, float]}?: rango porcentual de longitud de las manchas
     alargadas tipo "violín". Default (0.05, 0.7).
+    - grain_std {float}?: intensidad del grano de emulsion, ruido espacialmente
+    correlacionado (a diferencia de gaussian_std, que es ruido blanco por pixel). 0 no
+    aplica ningun efecto. Default 0.0.
     - rng {np.random.Generator}?: generador aleatorio a usar. Si no se pasa se crea uno
     sin semilla. Recibirlo permite que el resultado sea reproducible y seguro entre hilos.
     """
@@ -45,6 +87,14 @@ def add_realistic_noise(
     # 1. Ruido gaussiano (general)
     noise = rng.normal(0, gaussian_std, img.shape)
     img_noisy += noise
+
+    # 1b. Grano de emulsion: mismo ruido gaussiano pero desenfocado antes de sumarlo, para
+    # que quede espacialmente correlacionado en vez de independiente por pixel.
+    if grain_std > 0:
+        grain = rng.normal(0, grain_std, img.shape).astype(np.float32)
+        grain = cv2.GaussianBlur(grain, (5, 5), 0)
+        grain *= grain_std / (grain.std() + 1e-6)
+        img_noisy += grain
 
     # 2. Ruido en bandas horizontales (tiras verticales o líneas horizontales)
     band = rng.normal(0, band_intensity, (img.shape[0], 1))
