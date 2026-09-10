@@ -13,6 +13,9 @@ from .spectra import Fading, planck_like, spectral_function
 # Ruido de escaneo y bordes de placa
 from .noise import Position, add_background_field, add_plate_edge, add_realistic_noise
 
+# Anotaciones manuscritas
+from .handwriting import add_observation_annotations
+
 # Etiquetas
 from .labels import (
     LabelClass,
@@ -54,6 +57,8 @@ __all__ = [
     "add_background_field",
     "add_plate_edge",
     "add_realistic_noise",
+    # texto manuscrito
+    "add_observation_annotations",
     # etiquetas
     "LabelClass",
     "LabelFormat",
