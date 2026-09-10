@@ -12,6 +12,7 @@ from gsssp.geometry import (
     max_height_for_canvas,
     max_width_for_canvas,
 )
+from gsssp.handwriting import add_observation_annotations
 from gsssp.labels import LabelClass, LabelFormat, edges_of_labels_relxywh
 from gsssp.noise import Position, add_background_field, add_plate_edge, add_realistic_noise
 
@@ -53,6 +54,8 @@ class SpectrumLabeledSequence(Sequence):
   - blur_kernel_size_options: lista de opciones enteras para el tamaño del kernel de 
   desenfoque.
   - prob_edge: probabilidad de que se añada un borde a la placa.
+  - prob_handwriting: probabilidad de que la placa lleve una letra manuscrita (EMNIST
+  Letters) junto a cada una de sus observaciones, como distractor sin etiqueta.
   - batch_size: cantidad de elementos por lote.
   - resize_shape: dimensiones (ancho, alto) para las imagenes finales.
   - output_format: formato de datos de salida.
@@ -92,6 +95,7 @@ class SpectrumLabeledSequence(Sequence):
       violin_intensity_range = (0.1, 1.0),
       violin_length_range = (0.05, 0.7),
       prob_edge = 0.1,
+      prob_handwriting = 0.10,
       output_format:OutputFormat = OutputFormat.LIST,
       label_format:LabelFormat = LabelFormat.AABB,
       label_classes = (LabelClass.OBSERVATION,),
@@ -128,6 +132,7 @@ class SpectrumLabeledSequence(Sequence):
     self.violin_intensity_range = violin_intensity_range
     self.violin_length_range = violin_length_range
     self.prob_edge = prob_edge
+    self.prob_handwriting = prob_handwriting
     self.seed = seed
 
   # Number of batch in the Sequence.
@@ -230,6 +235,14 @@ class SpectrumLabeledSequence(Sequence):
         rng=rng,
       )
       labels.append(label)
+
+    ### Anotaciones manuscritas ###
+    # Distractor sin etiqueta: no se agrega a `labels`, solo busca que el modelo no
+    # confunda escritura real con una observacion. Se dibuja antes del borde de placa
+    # para que, si la placa tiene borde, quede pintado por encima: una anotacion nunca
+    # puede quedar sobre la zona de borde.
+    if self.prob_handwriting > 0 and rng.random() < self.prob_handwriting:
+      img = add_observation_annotations(img, posiciones, obs_width, obs_heigth, angle, rng=rng)
 
     ### Bordes de la placa ###
     if(self.prob_edge > 0 and rng.random() < self.prob_edge):
