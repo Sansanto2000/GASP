@@ -32,11 +32,24 @@ El generador produce imagenes etiquetadas respecto a distintas clases. El que et
 |`lamp`         |Espectro de lampara de comparacion.    |![Espectro de lampara de comparacion.](assets/...)|
 
 Cuando se selecciona mas de una clase entonces 
-
-
 # Entorno virtual
 
 Se recomienda usar *uv* para la administración del entorno virtual.
+
+## Dataset EMNIST (anotaciones manuscritas)
+
+Las anotaciones manuscritas (`prob_handwriting`) usan
+[EMNIST Letters](https://www.nist.gov/itl/products-and-services/emnist-dataset) via
+`tensorflow-datasets`, que ya es una dependencia transitiva del proyecto. La primera vez que
+se genera una placa con anotaciones, el dataset se descarga solo y queda cacheado en
+`~/tensorflow_datasets/`. Como `prob_handwriting` no es 0 por defecto, conviene correr esto
+una vez, con internet, antes de generar en un entorno que despues no vaya a tenerlo:
+
+```bash
+uv run python3 -c "import tensorflow_datasets as tfds; tfds.load('emnist/letters', split='train')"
+```
+
+![Placa sintetica con anotaciones manuscritas junto a cada observacion.](assets/exampleHandwriting.jpg)
 
 ## Generar
 

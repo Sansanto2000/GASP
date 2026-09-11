@@ -97,6 +97,22 @@ de esta decisión — pero las OBB sí.
   entrena en Linux con GPU.
 - `uv.lock` está versionado: si cambian dependencias, el lock va **en el mismo commit**.
 
+### Dataset EMNIST (anotaciones manuscritas)
+
+Las anotaciones manuscritas (`handwriting.py`, parámetro `prob_handwriting` del generador,
+default `0.10`) usan EMNIST Letters vía `tensorflow-datasets` — ya es dependencia transitiva
+de `keras-cv`, no se sumó nada a `pyproject.toml`. Se carga perezosa: la primera vez que se
+genera una placa con anotación, `tfds.load('emnist/letters', ...)` **descarga ~500MB de
+internet** y los cachea en `~/tensorflow_datasets/`.
+
+Como el default de `prob_handwriting` no es 0, cualquier corrida normal del generador puede
+disparar esa descarga. Si el entorno de entrenamiento en Linux no tiene salida a internet,
+hay que correr esto una vez de antemano, con internet, para que quede cacheado:
+
+```bash
+uv run python3 -c "import tensorflow_datasets as tfds; tfds.load('emnist/letters', split='train')"
+```
+
 ### Configuración de las corridas
 
 Los parámetros que cambian por corrida viven en un `.env` en la raíz, no en el código:
