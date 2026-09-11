@@ -95,7 +95,7 @@ class SpectrumLabeledSequence(Sequence):
       batch_size = 128,
       resize_shape = (640, 640),
       violin_line_include:bool = True,
-      violin_intensity_range = (0.1, 1.0),
+      violin_intensity_range = (0.05, 0.35),
       violin_length_range = (0.05, 0.7),
       scratch_line_include:bool = True,
       scratch_intensity_range = (0.3, 0.8),
