@@ -56,6 +56,10 @@ class SpectrumLabeledSequence(Sequence):
   - scratch_intensity_range: rango de intensidad de las rayas finas de manipulacion.
   - scratch_length_range: rango porcentual de longitud de las rayas finas de
   manipulacion, relativo a la diagonal de la placa.
+  - hair_intensity_range: rango de intensidad de las marcas curvas aisladas tipo pelo
+  o fibra.
+  - hair_length_range: rango porcentual de longitud de las marcas curvas tipo pelo o
+  fibra, relativo a la diagonal de la placa.
   - prob_edge: probabilidad de que se añada un borde a la placa.
   - prob_handwriting: probabilidad de que la placa lleve una letra manuscrita (EMNIST
   Letters) junto a cada una de sus observaciones, como distractor sin etiqueta.
@@ -100,6 +104,9 @@ class SpectrumLabeledSequence(Sequence):
       scratch_line_include:bool = True,
       scratch_intensity_range = (0.3, 0.8),
       scratch_length_range = (0.02, 0.8),
+      hair_line_include:bool = True,
+      hair_intensity_range = (0.3, 0.7),
+      hair_length_range = (0.005, 0.05),
       prob_edge = 0.1,
       prob_handwriting = 0.10,
       output_format:OutputFormat = OutputFormat.LIST,
@@ -140,6 +147,9 @@ class SpectrumLabeledSequence(Sequence):
     self.scratch_line_include = scratch_line_include
     self.scratch_intensity_range = scratch_intensity_range
     self.scratch_length_range = scratch_length_range
+    self.hair_line_include = hair_line_include
+    self.hair_intensity_range = hair_intensity_range
+    self.hair_length_range = hair_length_range
     self.prob_edge = prob_edge
     self.prob_handwriting = prob_handwriting
     self.seed = seed
@@ -286,6 +296,14 @@ class SpectrumLabeledSequence(Sequence):
       ) if self.scratch_line_include else 0
     # Intensidad de las rayas finas de manipulacion
     scratch_intensity = rng.uniform(*self.scratch_intensity_range)
+    # Cantidad de marcas curvas aisladas tipo pelo o fibra. Se mantiene aislada a
+    # proposito, como el pelo o fibra que representa: casi siempre 0, rara vez mas de 1.
+    hair_line_count = rng.choice(
+        [0, 1, 2],
+        p=[0.85, 0.13, 0.02]
+      ) if self.hair_line_include else 0
+    # Intensidad de las marcas curvas tipo pelo o fibra
+    hair_intensity = rng.uniform(*self.hair_intensity_range)
     # Añadir ruido en la imagen
     img = add_realistic_noise(
       img,
@@ -301,6 +319,9 @@ class SpectrumLabeledSequence(Sequence):
       scratch_line_count=scratch_line_count,
       scratch_intensity=scratch_intensity,
       scratch_length_range=self.scratch_length_range,
+      hair_line_count=hair_line_count,
+      hair_intensity=hair_intensity,
+      hair_length_range=self.hair_length_range,
       rng=rng,
     )
 

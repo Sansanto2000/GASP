@@ -57,6 +57,9 @@ def add_realistic_noise(
     scratch_line_count: int = 0,
     scratch_intensity = 0.5,
     scratch_length_range = (0.02, 0.8),
+    hair_line_count: int = 0,
+    hair_intensity = 0.5,
+    hair_length_range = (0.005, 0.05),
     *, rng: np.random.Generator = None
 ) -> NDArray[np.uint8]:
     """Añadir ruido realista a una imagen.
@@ -84,6 +87,14 @@ def add_realistic_noise(
     - scratch_intensity {float}?: intensidad de las rayas finas de manipulacion. Default 0.5.
     - scratch_length_range {Tuple[float, float]}?: rango porcentual de longitud de las
     rayas finas de manipulacion, relativo a la diagonal de la imagen. Default (0.02, 0.8).
+    - hair_line_count {int}?: cantidad de marcas curvas aisladas tipo pelo o fibra a
+    simular. Default 0.
+    - hair_intensity {float}?: intensidad de las marcas curvas tipo pelo o fibra. Default 0.5.
+    - hair_length_range {Tuple[float, float]}?: rango porcentual de longitud de las
+    marcas curvas tipo pelo o fibra, relativo a la diagonal de la imagen. Default
+    (0.005, 0.05): mucho mas cortas que las rayas de manipulacion, consistente con un
+    pelo o fibra sobre el negativo o el vidrio del escaner, no con un rayon que cruza
+    la placa.
     - rng {np.random.Generator}?: generador aleatorio a usar. Si no se pasa se crea uno
     sin semilla. Recibirlo permite que el resultado sea reproducible y seguro entre hilos.
     """
@@ -163,7 +174,44 @@ def add_realistic_noise(
         pt2 = (int(cx + dx), int(cy + dy))
         cv2.line(img_noisy, pt1, pt2, 255 * scratch_intensity, thickness=1, lineType=cv2.LINE_AA)
 
-    # 6. Desenfoque suave (simula ópticas imperfectas)
+    # 6. Marca curva aislada tipo pelo o fibra: consistente con un pelo o fibra que
+    # quedo sobre el negativo o el vidrio del escaner al momento de digitalizar, a
+    # diferencia de las rayas de manipulacion del paso anterior (rectas, en red, de
+    # origen en la emulsion). Se dibuja como una polilinea de pocos segmentos, con el
+    # angulo variando levemente de un segmento al siguiente en vez de mantenerse fijo,
+    # lo que da una curva irregular corta en vez de un eje recto. El grosor arranca
+    # ancho y algo circular en la raiz (folicular) y se afina hacia la punta, en vez de
+    # mantenerse constante: es lo que se ve en un pelo o fibra real sobre el escaneo.
+    hair_segment_count_range = (3, 7)
+    hair_segment_angle_jitter_deg = 30.0
+    hair_root_thickness_range = (2, 4)
+    hair_tip_thickness = 1
+    for _ in range(hair_line_count):
+        length = diag * rng.uniform(*hair_length_range)
+        n_segments = int(rng.integers(*hair_segment_count_range))
+        segment_length = length / n_segments
+        angle_deg = rng.uniform(0, 360)
+        color = 255 * hair_intensity
+        root_thickness = int(rng.integers(*hair_root_thickness_range))
+        x, y = float(rng.integers(0, w)), float(rng.integers(0, h))
+        cv2.circle(
+            img_noisy, (int(round(x)), int(round(y))), root_thickness // 2 + 1,
+            color, cv2.FILLED, lineType=cv2.LINE_AA,
+        )
+        for i in range(n_segments):
+            angle_deg += rng.uniform(-hair_segment_angle_jitter_deg, hair_segment_angle_jitter_deg)
+            x_next = x + segment_length * np.cos(np.deg2rad(angle_deg))
+            y_next = y + segment_length * np.sin(np.deg2rad(angle_deg))
+            thickness = round(
+                root_thickness + (hair_tip_thickness - root_thickness) * (i + 1) / n_segments
+            )
+            cv2.line(
+                img_noisy, (int(round(x)), int(round(y))), (int(round(x_next)), int(round(y_next))),
+                color, thickness=max(1, thickness), lineType=cv2.LINE_AA,
+            )
+            x, y = x_next, y_next
+
+    # 7. Desenfoque suave (simula ópticas imperfectas)
     if blur_ksize >= 3 and blur_ksize % 2 == 1:
         img_noisy = cv2.GaussianBlur(img_noisy, (blur_ksize, blur_ksize), 0)
 
