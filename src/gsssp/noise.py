@@ -54,6 +54,9 @@ def add_realistic_noise(
     violin_intensity = 0.7,
     violin_length_range = (0.05, 0.7),
     grain_std: float = 0.0,
+    scratch_line_count: int = 0,
+    scratch_intensity = 0.5,
+    scratch_length_range = (0.02, 0.8),
     *, rng: np.random.Generator = None
 ) -> NDArray[np.uint8]:
     """Añadir ruido realista a una imagen.
@@ -76,6 +79,11 @@ def add_realistic_noise(
     - grain_std {float}?: intensidad del grano de emulsion, ruido espacialmente
     correlacionado (a diferencia de gaussian_std, que es ruido blanco por pixel). 0 no
     aplica ningun efecto. Default 0.0.
+    - scratch_line_count {int}?: cantidad de rayas finas de manipulacion (rayones
+    diagonales que cruzan el fondo) a simular. Default 0.
+    - scratch_intensity {float}?: intensidad de las rayas finas de manipulacion. Default 0.5.
+    - scratch_length_range {Tuple[float, float]}?: rango porcentual de longitud de las
+    rayas finas de manipulacion, relativo a la diagonal de la imagen. Default (0.02, 0.8).
     - rng {np.random.Generator}?: generador aleatorio a usar. Si no se pasa se crea uno
     sin semilla. Recibirlo permite que el resultado sea reproducible y seguro entre hilos.
     """
@@ -137,7 +145,25 @@ def add_realistic_noise(
         # Aplicar
         img_noisy += gaussian_2d
 
-    # 5. Desenfoque suave (simula ópticas imperfectas)
+    # 5. Rayas finas de manipulacion: rayones diagonales, nitidos (a diferencia de las
+    # manchas "violín", que son difusas), que se cruzan entre si sobre el fondo. El angulo
+    # se mantiene lejos tanto de la horizontal como de la vertical para no confundirse con
+    # el borde de una observacion o con una linea espectral.
+    scratch_angle_deg_range = (15.0, 75.0)
+    diag = float(np.hypot(h, w))
+    for _ in range(scratch_line_count):
+        length = diag * rng.uniform(*scratch_length_range)
+        angle_deg = rng.uniform(*scratch_angle_deg_range) * rng.choice([-1, 1])
+        angle_rad = np.deg2rad(angle_deg)
+        cx = rng.integers(0, w)
+        cy = rng.integers(0, h)
+        dx = np.cos(angle_rad) * length / 2
+        dy = np.sin(angle_rad) * length / 2
+        pt1 = (int(cx - dx), int(cy - dy))
+        pt2 = (int(cx + dx), int(cy + dy))
+        cv2.line(img_noisy, pt1, pt2, 255 * scratch_intensity, thickness=1, lineType=cv2.LINE_AA)
+
+    # 6. Desenfoque suave (simula ópticas imperfectas)
     if blur_ksize >= 3 and blur_ksize % 2 == 1:
         img_noisy = cv2.GaussianBlur(img_noisy, (blur_ksize, blur_ksize), 0)
 

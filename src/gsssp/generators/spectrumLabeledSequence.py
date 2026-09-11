@@ -53,6 +53,9 @@ class SpectrumLabeledSequence(Sequence):
   - speck_size_range: rango de tamaño de las manchas de polvo.
   - blur_kernel_size_options: lista de opciones enteras para el tamaño del kernel de 
   desenfoque.
+  - scratch_intensity_range: rango de intensidad de las rayas finas de manipulacion.
+  - scratch_length_range: rango porcentual de longitud de las rayas finas de
+  manipulacion, relativo a la diagonal de la placa.
   - prob_edge: probabilidad de que se añada un borde a la placa.
   - prob_handwriting: probabilidad de que la placa lleve una letra manuscrita (EMNIST
   Letters) junto a cada una de sus observaciones, como distractor sin etiqueta.
@@ -94,6 +97,9 @@ class SpectrumLabeledSequence(Sequence):
       violin_line_include:bool = True,
       violin_intensity_range = (0.1, 1.0),
       violin_length_range = (0.05, 0.7),
+      scratch_line_include:bool = True,
+      scratch_intensity_range = (0.3, 0.8),
+      scratch_length_range = (0.02, 0.8),
       prob_edge = 0.1,
       prob_handwriting = 0.10,
       output_format:OutputFormat = OutputFormat.LIST,
@@ -131,6 +137,9 @@ class SpectrumLabeledSequence(Sequence):
     self.batchs_per_sequence = batchs_per_sequence
     self.violin_intensity_range = violin_intensity_range
     self.violin_length_range = violin_length_range
+    self.scratch_line_include = scratch_line_include
+    self.scratch_intensity_range = scratch_intensity_range
+    self.scratch_length_range = scratch_length_range
     self.prob_edge = prob_edge
     self.prob_handwriting = prob_handwriting
     self.seed = seed
@@ -270,6 +279,13 @@ class SpectrumLabeledSequence(Sequence):
       ) if self.violin_line_include else 0
     # Intensidad de las manchas alargadas tipo "violín"
     violin_intensity = rng.uniform(*self.violin_intensity_range)
+    # Cantidad de rayas finas de manipulacion (rayones diagonales que cruzan el fondo)
+    scratch_line_count = rng.choice(
+        [0, 2, 5, 7, 10, 15, 20],
+        p=[0.05, 0.15, 0.30, 0.25, 0.15, 0.07, 0.03]
+      ) if self.scratch_line_include else 0
+    # Intensidad de las rayas finas de manipulacion
+    scratch_intensity = rng.uniform(*self.scratch_intensity_range)
     # Añadir ruido en la imagen
     img = add_realistic_noise(
       img,
@@ -282,6 +298,9 @@ class SpectrumLabeledSequence(Sequence):
       violin_line_count=violin_line_count,
       violin_intensity=violin_intensity,
       violin_length_range=self.violin_length_range,
+      scratch_line_count=scratch_line_count,
+      scratch_intensity=scratch_intensity,
+      scratch_length_range=self.scratch_length_range,
       rng=rng,
     )
 
