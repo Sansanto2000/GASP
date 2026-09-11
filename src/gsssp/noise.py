@@ -51,7 +51,7 @@ def add_realistic_noise(
     speck_size: int = 3,
     blur_ksize: int = 3,
     violin_line_count: int = 0,
-    violin_intensity = 0.7,
+    violin_intensity = 0.3,
     violin_length_range = (0.05, 0.7),
     grain_std: float = 0.0,
     scratch_line_count: int = 0,
@@ -73,7 +73,7 @@ def add_realistic_noise(
     - blur_ksize {int}?: tamaño del kernel para desenfoque gaussiano. Debe ser impar, con 0 
     u otro valor invalido no se aplica ningun desenfoque. Default 3.
     - violin_line_count {int}?: cantidad de manchas alargadas tipo "violín" a simular. Default 0.
-    - violin_intensity {float}?: intensidad de las manchas alargadas tipo "violín". Default 0.7.
+    - violin_intensity {float}?: intensidad de las manchas alargadas tipo "violín". Default 0.3.
     - violin_length_range {Tuple[float, float]}?: rango porcentual de longitud de las manchas
     alargadas tipo "violín". Default (0.05, 0.7).
     - grain_std {float}?: intensidad del grano de emulsion, ruido espacialmente
@@ -117,7 +117,7 @@ def add_realistic_noise(
         cv2.circle(img_noisy, (int(cx), int(cy)), int(radius), int(color), cv2.FILLED)
 
     # 4. Manchas alargadas
-    violin_sigma: float = 6.0
+    violin_sigma: float = 3.0
     h, w = img.shape[:2]
     # Ejes como columna y fila: al combinarlos broadcastean a (h, w) sin materializar
     # dos grillas completas por mancha, como hacia np.meshgrid.
