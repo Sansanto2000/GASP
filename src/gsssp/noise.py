@@ -60,7 +60,9 @@ def add_realistic_noise(
     hair_line_count: int = 0,
     hair_intensity = 0.5,
     hair_length_range = (0.005, 0.05),
-    *, rng: np.random.Generator = None
+    *,
+    valid_mask: NDArray[np.bool_] = None,
+    rng: np.random.Generator = None
 ) -> NDArray[np.uint8]:
     """Añadir ruido realista a una imagen.
 
@@ -95,6 +97,10 @@ def add_realistic_noise(
     (0.005, 0.05): mucho mas cortas que las rayas de manipulacion, consistente con un
     pelo o fibra sobre el negativo o el vidrio del escaner, no con un rayon que cruza
     la placa.
+    - valid_mask {NDArray[np.bool_]}?: mascara (alto, ancho) del lado valido de un borde
+    de placa ya dibujado (ver `add_plate_edge`), si lo hay. Las rayas de manipulacion no
+    se dibujan del lado False: una raya real esta sobre la emulsion, y del otro lado del
+    borde fisico no hay emulsion que rayar. None (default) no restringe nada.
     - rng {np.random.Generator}?: generador aleatorio a usar. Si no se pasa se crea uno
     sin semilla. Recibirlo permite que el resultado sea reproducible y seguro entre hilos.
     """
@@ -162,6 +168,13 @@ def add_realistic_noise(
     # el borde de una observacion o con una linea espectral.
     scratch_angle_deg_range = (15.0, 75.0)
     diag = float(np.hypot(h, w))
+    # Las rayas se dibujan siempre directo sobre el fondo real (mismo blend que sin
+    # mascara: cv2.line reemplaza el pixel, no lo suma). Si hay un lado de corte, se
+    # guarda esa zona antes de dibujar y se restaura despues en un solo paso, en vez
+    # de recortar raya por raya: mas barato (una copia del tamaño de la zona de
+    # corte, no del canvas completo, una sola vez) y evita que dibujar sobre un
+    # lienzo en cero y sumar duplique el brillo donde el fondo ya era claro.
+    invalid_backup = img_noisy[~valid_mask].copy() if valid_mask is not None else None
     for _ in range(scratch_line_count):
         length = diag * rng.uniform(*scratch_length_range)
         angle_deg = rng.uniform(*scratch_angle_deg_range) * rng.choice([-1, 1])
@@ -173,6 +186,8 @@ def add_realistic_noise(
         pt1 = (int(cx - dx), int(cy - dy))
         pt2 = (int(cx + dx), int(cy + dy))
         cv2.line(img_noisy, pt1, pt2, 255 * scratch_intensity, thickness=1, lineType=cv2.LINE_AA)
+    if invalid_backup is not None:
+        img_noisy[~valid_mask] = invalid_backup
 
     # 6. Marca curva aislada tipo pelo o fibra: consistente con un pelo o fibra que
     # quedo sobre el negativo o el vidrio del escaner al momento de digitalizar, a
@@ -226,21 +241,93 @@ class Position(Enum):
     TOP = 2
     BOTTOM = 3
 
-def add_plate_edge(img, edges, position:Position, *, rng:np.random.Generator = None):
+def _add_edge_glow(img, interior, max_thickness, *, rng: np.random.Generator):
+    """Agrega un brillo que decae desde el borde hacia adentro de la placa.
+
+    Simula el filo mas revelado de la emulsion justo junto al borde fisico: una
+    franja clara pegada al limite que se atenua rapido a medida que se aleja hacia
+    el interior (caida tipo exponencial desde el borde), en vez de que el borde
+    corte de golpe al color de fondo parejo. Hacia afuera del borde no cambia nada:
+    ese lado ya quedo resuelto por el relleno parejo de `add_plate_edge`.
+
+    La caida no es una exponencial prolija: la distancia al borde se perturba con
+    ruido de baja frecuencia (revelado disparejo) y el brillo resultante ademas
+    lleva grano fino pixel a pixel, para que no se vea como un degradado calculado
+    sino como una franja irregular, igual que el resto del ruido del pipeline.
+
+    Args:
+        img (NDArray[np.uint8]): imagen ya con el borde (fillPoly) aplicado.
+        interior (NDArray[np.bool_]): mascara del lado de la placa (True) contra
+        el lado de corte (False), calculada una sola vez en `add_plate_edge`.
+        max_thickness (int): grosor maximo disponible en este lado, usado para
+        escalar que tan lejos hacia adentro llega el brillo.
+        rng (np.random.Generator): generador aleatorio a usar.
+
+    Returns:
+        NDArray[np.uint8]: imagen con el brillo agregado.
+    """
+    h, w = interior.shape
+
+    # Distancia (en pixeles) de cada punto interior al borde de corte mas cercano.
+    dist = cv2.distanceTransform((interior.astype(np.uint8)) * 255, cv2.DIST_L2, 5)
+
+    peak = rng.uniform(80.0, 200.0)
+    decay_length = rng.uniform(0.015, 0.12) * max(max_thickness, 3)
+
+    # Revelado disparejo: se perturba la distancia con ruido suavizado (a la misma
+    # escala que la caida) antes de la exponencial, asi el limite del brillo no
+    # sigue la curva del borde de forma pareja sino con entrantes y salientes.
+    roughness = rng.normal(0.0, 1.0, (h, w)).astype(np.float32)
+    roughness = cv2.GaussianBlur(roughness, (0, 0), sigmaX=max(decay_length * 0.5, 1.0))
+    roughness *= decay_length * rng.uniform(0.4, 0.9)
+    dist_rough = np.clip(dist + roughness, 0, None)
+
+    glow = peak * np.exp(-dist_rough / decay_length)
+
+    # Grano fino superpuesto, proporcional al brillo local: sin esto la franja
+    # queda como un degradado calculado en vez de una mancha fotografica.
+    grain = rng.normal(1.0, 0.3, (h, w)).astype(np.float32)
+    glow *= grain
+
+    glow[~interior] = 0.0
+
+    return np.clip(img.astype(np.float32) + glow, 0, 255).astype(np.uint8)
+
+def add_plate_edge(
+    img, edges, position:Position, *,
+    prob_glow_edge: float = 0.5,
+    rng:np.random.Generator = None,
+):
     """Agrega un borde a la placa basado en los limites de las etiquetas.
 
     Trabaja en escala de grises: recibe y devuelve un arreglo (alto, ancho).
 
+    El borde es curvo/irregular, nunca una linea recta: se arma mezclando una leve
+    inclinacion general con arcos de radio aleatorio a lo largo del lado, para imitar
+    como la emulsion de una placa real se contrae de forma desigual cerca del borde.
+    Independientemente de la forma del borde, con probabilidad `prob_glow_edge` se le
+    suma ademas un brillo pegado al limite que decae hacia el interior (ver
+    `_add_edge_glow`).
+
+    Tambien devuelve la mascara del lado de la placa (contra el lado de corte),
+    para que quien llama pueda usarla despues y evitar que un efecto de ruido
+    dibujado mas tarde (una raya de manipulacion, por ejemplo) cruce el borde
+    hacia la zona de corte.
+
     Args:
         img (NDArray[np.uint8]): imagen a modificar.
-        edges (tupla): (x_min, x_max, y_min, y_max) limites en pixeles donde 
+        edges (tupla): (x_min, x_max, y_min, y_max) limites en pixeles donde
         se mueven las etiquetas.
         position (Position): lado de la placa donde agregar el borde.
+        prob_glow_edge (float, optional): probabilidad de sumar el brillo que decae
+        desde el borde hacia adentro. Default 0.5.
         rng (np.random.Generator, optional): generador aleatorio a usar. Si no se pasa
         se crea uno sin semilla.
 
     Returns:
         NDArray[np.uint8]: imagen con el borde agregado.
+        NDArray[np.bool_]: mascara (alto, ancho), True del lado de la placa y
+        False del lado de corte.
     """
 
     if rng is None:
@@ -248,53 +335,90 @@ def add_plate_edge(img, edges, position:Position, *, rng:np.random.Generator = N
 
     h, w = img.shape[:2]
     x_min, x_max, y_min, y_max = edges
-    margin = 0.7
+    margin = 0.5
     # color del fondo "de atrás"
     gray = int(rng.integers(50, 156))
     bg_color = gray
-    # color de la línea límite
+    # inclinacion general leve del borde, de un extremo del lado al otro
     angle_noise = int(min(w, h) * 0.02)
     shift = int(rng.integers(-angle_noise, angle_noise + 1))
 
+    # Cuantos arcos se mezclan a lo largo del lado y que tan marcados son. Son
+    # constantes internas de forma, en la misma linea que hair_segment_count_range
+    # o scratch_angle_deg_range: describen el "aspecto" del efecto, no algo que haga
+    # falta barrer desde el generador.
+    bump_count_range = (1, 4)
+    bump_amplitude_range = (0.2, 0.4)  # fraccion de max_thickness
+    bump_radius_range = (0.2, 0.4)  # fraccion de la longitud del lado
+
+    def curved_profile(length, max_thickness):
+        """Perfil de grosor a lo largo del lado: recta base + arcos gaussianos.
+
+        Cada arco es una campana centrada en un punto aleatorio del lado, con un
+        radio (ancho) y una amplitud (alto, positiva o negativa) aleatorios: hace
+        de arco de radio variable sin necesidad de resolver la geometria de un
+        arco de circunferencia real, que para este uso (variar el grosor del
+        borde) da el mismo tipo de curva suave. La cantidad de arcos (1 a 4) no
+        esta restringida: lo que se acota es su amplitud, para que la curva
+        pueda ir y venir varias veces sin que cada vaiven sea muy profundo.
+
+        El recorte a [0, max_thickness] se suaviza con un desenfoque liviano
+        despues del clip: eso redondea el codo filoso que deja un np.clip duro
+        justo donde un arco se pasa del margen disponible, sin comprimir el
+        resto del perfil (que un suavizado tipo tanh sobre todo el rango si
+        hace, achatando tambien las zonas que ya entraban sin problema).
+        """
+        base = int(rng.integers(0, max_thickness + 1))
+        t = np.linspace(0.0, 1.0, length)
+        profile = base + shift * t
+        n_bumps = int(rng.integers(bump_count_range[0], bump_count_range[1] + 1))
+        for _ in range(n_bumps):
+            center = rng.uniform(0.0, 1.0)
+            radius = rng.uniform(*bump_radius_range)
+            amplitude = rng.uniform(*bump_amplitude_range) * max_thickness
+            amplitude *= rng.choice([-1, 1])
+            profile = profile + amplitude * np.exp(-((t - center) ** 2) / (2 * radius ** 2))
+        clipped = np.clip(profile, 0, max_thickness)
+        smoothing_sigma = max(length * 0.008, 2.0)
+        clipped = cv2.GaussianBlur(
+            clipped.reshape(1, -1).astype(np.float32), (0, 0), sigmaX=smoothing_sigma
+        ).flatten()
+        return np.clip(clipped, 0, max_thickness)
+
     match position:
         case Position.RIGHT:
-            max_thickness = int((w - x_max) * (1 - margin))
-            thickness = int(rng.integers(0, max(1, int(max_thickness)) + 1))
-            pts = np.array([
-                [w-thickness, 0],
-                [w, 0],
-                [w, h],
-                [w-thickness + shift, h]
-            ])
-            cv2.fillPoly(img, [pts], bg_color)
+            max_thickness = max(1, int((w - x_max) * (1 - margin)))
+            ys = np.arange(h)
+            profile = curved_profile(h, max_thickness)
+            curve = np.column_stack([w - profile, ys])
+            pts = np.vstack([curve, [w, h], [w, 0]])
         case Position.LEFT:
-            max_thickness = int(x_min * (1 - margin))
-            thickness = int(rng.integers(0, max(1, int(max_thickness)) + 1))
-            pts = np.array([
-                [0, 0],
-                [thickness, 0],
-                [thickness + shift, h],
-                [0, h]
-            ])
-            cv2.fillPoly(img, [pts], bg_color)
+            max_thickness = max(1, int(x_min * (1 - margin)))
+            ys = np.arange(h)
+            profile = curved_profile(h, max_thickness)
+            curve = np.column_stack([profile, ys])
+            pts = np.vstack([curve, [0, h], [0, 0]])
         case Position.TOP:
-            max_thickness = int(y_min * (1 - margin))
-            thickness = int(rng.integers(0, max(1, int(max_thickness)) + 1))
-            pts = np.array([
-                [0, 0],
-                [w, 0],
-                [w, thickness],
-                [0, thickness + shift]
-            ])
-            cv2.fillPoly(img, [pts], bg_color)
+            max_thickness = max(1, int(y_min * (1 - margin)))
+            xs = np.arange(w)
+            profile = curved_profile(w, max_thickness)
+            curve = np.column_stack([xs, profile])
+            pts = np.vstack([[0, 0], [w, 0], curve[::-1]])
         case Position.BOTTOM:
-            max_thickness = int((h - y_max) * (1 - margin))
-            thickness = int(rng.integers(0, max(1, int(max_thickness)) + 1))
-            pts = np.array([
-                [0, h],
-                [w, h],
-                [w, h-thickness],
-                [0, h-thickness + shift]
-            ])
-            cv2.fillPoly(img, [pts], bg_color)
-    return img
+            max_thickness = max(1, int((h - y_max) * (1 - margin)))
+            xs = np.arange(w)
+            profile = curved_profile(w, max_thickness)
+            curve = np.column_stack([xs, h - profile])
+            pts = np.vstack([[0, h], [w, h], curve[::-1]])
+
+    pts = pts.astype(np.int32)
+    cut_mask = np.zeros((h, w), dtype=np.uint8)
+    cv2.fillPoly(cut_mask, [pts], 255)
+    valid_mask = cut_mask == 0
+
+    cv2.fillPoly(img, [pts], bg_color)
+
+    if rng.random() < prob_glow_edge:
+        img = _add_edge_glow(img, valid_mask, max_thickness, rng=rng)
+
+    return img, valid_mask
