@@ -60,7 +60,13 @@ class SpectrumLabeledSequence(Sequence):
   o fibra.
   - hair_length_range: rango porcentual de longitud de las marcas curvas tipo pelo o
   fibra, relativo a la diagonal de la placa.
-  - prob_edge: probabilidad de que se añada un borde a la placa.
+  - prob_edge: probabilidad de que se añada un borde a la placa. El borde siempre es
+  curvo/irregular, nunca una linea recta: es lo que se ve en una placa real, donde la
+  emulsion se contrae de forma desigual cerca del borde.
+  - prob_glow_edge: dado que se añade un borde, probabilidad de sumarle ademas un
+  brillo pegado al limite que decae hacia el interior de la placa, en vez de un
+  corte parejo al color de fondo. Simula el filo mas revelado de la emulsion justo
+  junto al borde fisico.
   - prob_handwriting: probabilidad de que la placa lleve una letra manuscrita (EMNIST
   Letters) junto a cada una de sus observaciones, como distractor sin etiqueta.
   - batch_size: cantidad de elementos por lote.
@@ -102,12 +108,13 @@ class SpectrumLabeledSequence(Sequence):
       violin_intensity_range = (0.05, 0.35),
       violin_length_range = (0.05, 0.7),
       scratch_line_include:bool = True,
-      scratch_intensity_range = (0.3, 0.8),
-      scratch_length_range = (0.02, 0.8),
+      scratch_intensity_range = (0.3, 0.5),
+      scratch_length_range = (0.02, 0.4),
       hair_line_include:bool = True,
       hair_intensity_range = (0.3, 0.7),
       hair_length_range = (0.005, 0.05),
       prob_edge = 0.1,
+      prob_glow_edge = 0.75,
       prob_handwriting = 0.10,
       output_format:OutputFormat = OutputFormat.LIST,
       label_format:LabelFormat = LabelFormat.AABB,
@@ -151,6 +158,7 @@ class SpectrumLabeledSequence(Sequence):
     self.hair_intensity_range = hair_intensity_range
     self.hair_length_range = hair_length_range
     self.prob_edge = prob_edge
+    self.prob_glow_edge = prob_glow_edge
     self.prob_handwriting = prob_handwriting
     self.seed = seed
 
@@ -264,10 +272,16 @@ class SpectrumLabeledSequence(Sequence):
       img = add_observation_annotations(img, posiciones, obs_width, obs_heigth, angle, rng=rng)
 
     ### Bordes de la placa ###
+    # edge_valid_mask queda None si la placa no lleva borde: add_realistic_noise no
+    # restringe nada en ese caso.
+    edge_valid_mask = None
     if(self.prob_edge > 0 and rng.random() < self.prob_edge):
       [x_min, x_max, y_min, y_max ] = edges_of_labels_relxywh(labels, alto, ancho)
       side = [Position.RIGHT, Position.LEFT, Position.TOP, Position.BOTTOM][int(rng.integers(0, 4))]
-      img = add_plate_edge(img, (x_min, x_max, y_min, y_max), side, rng=rng)
+      img, edge_valid_mask = add_plate_edge(
+        img, (x_min, x_max, y_min, y_max), side,
+        prob_glow_edge=self.prob_glow_edge, rng=rng,
+      )
 
     ### Ruido y manchas ###
     # Ruido gaussiano general para la imagen de la placa
@@ -291,8 +305,8 @@ class SpectrumLabeledSequence(Sequence):
     violin_intensity = rng.uniform(*self.violin_intensity_range)
     # Cantidad de rayas finas de manipulacion (rayones diagonales que cruzan el fondo)
     scratch_line_count = rng.choice(
-        [0, 2, 5, 7, 10, 15, 20],
-        p=[0.05, 0.15, 0.30, 0.25, 0.15, 0.07, 0.03]
+        [0, 2, 5, 7, 10],
+        p=[0.05, 0.15, 0.30, 0.25, 0.25]
       ) if self.scratch_line_include else 0
     # Intensidad de las rayas finas de manipulacion
     scratch_intensity = rng.uniform(*self.scratch_intensity_range)
@@ -322,6 +336,7 @@ class SpectrumLabeledSequence(Sequence):
       hair_line_count=hair_line_count,
       hair_intensity=hair_intensity,
       hair_length_range=self.hair_length_range,
+      valid_mask=edge_valid_mask,
       rng=rng,
     )
 
