@@ -108,8 +108,8 @@ class SpectrumLabeledSequence(Sequence):
       violin_intensity_range = (0.05, 0.35),
       violin_length_range = (0.05, 0.7),
       scratch_line_include:bool = True,
-      scratch_intensity_range = (0.3, 0.8),
-      scratch_length_range = (0.02, 0.8),
+      scratch_intensity_range = (0.3, 0.5),
+      scratch_length_range = (0.02, 0.4),
       hair_line_include:bool = True,
       hair_intensity_range = (0.3, 0.7),
       hair_length_range = (0.005, 0.05),
@@ -305,8 +305,8 @@ class SpectrumLabeledSequence(Sequence):
     violin_intensity = rng.uniform(*self.violin_intensity_range)
     # Cantidad de rayas finas de manipulacion (rayones diagonales que cruzan el fondo)
     scratch_line_count = rng.choice(
-        [0, 2, 5, 7, 10, 15, 20],
-        p=[0.05, 0.15, 0.30, 0.25, 0.15, 0.07, 0.03]
+        [0, 2, 5, 7, 10],
+        p=[0.05, 0.15, 0.30, 0.25, 0.25]
       ) if self.scratch_line_include else 0
     # Intensidad de las rayas finas de manipulacion
     scratch_intensity = rng.uniform(*self.scratch_intensity_range)
