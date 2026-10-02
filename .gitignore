@@ -1,6 +1,9 @@
 # Carpeta temporal
 temp/
 
+# Exploracion de datos LAMOST (catalogos y espectros descargados, no versionados)
+lamost/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
