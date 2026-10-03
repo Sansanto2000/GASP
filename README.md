@@ -36,6 +36,29 @@ Cuando se selecciona mas de una clase entonces
 
 Se recomienda usar *uv* para la administración del entorno virtual.
 
+## Dataset LAMOST (espectro de ciencia)
+
+El espectro de ciencia de cada observacion es un tramo de un espectro estelar real de
+[LAMOST DR12](https://www.lamost.org/dr12/v2.0/) (baja resolucion), tomado de una muestra de
+99.998 espectros publicada en
+[Hugging Face](https://huggingface.co/datasets/Sansanto/gasp-lamost-dr12-lrs). La primera vez
+que se genera una placa se descargan (240 MB) y quedan cacheados en
+`~/.keras/datasets/gasp_lamost/`. Para un entorno que despues no vaya a tener internet,
+correr esto una vez antes:
+
+```bash
+uv run python3 -c "from gsssp import load_lamost_spectra; load_lamost_spectra()"
+```
+
+Todo trabajo publicado que use estas imagenes debe incluir el agradecimiento que exige la
+politica de datos de LAMOST:
+
+> Guoshoujing Telescope (the Large Sky Area Multi-Object Fiber Spectroscopic Telescope
+> LAMOST) is a National Major Scientific Project built by the Chinese Academy of Sciences.
+> Funding for the project has been provided by the National Development and Reform
+> Commission. LAMOST is operated and managed by the National Astronomical Observatories,
+> Chinese Academy of Sciences.
+
 ## Dataset EMNIST (anotaciones manuscritas)
 
 Las anotaciones manuscritas (`prob_handwriting`) usan

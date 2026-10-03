@@ -17,7 +17,8 @@ importable** y también vía scripts de ejemplo.
 src/gsssp/
   __init__.py                        API pública del paquete (__all__)
   drawing.py                         draw_observation: dibuja una observación
-  spectra.py                         spectral_function, Fading, planck_like
+  spectra.py                         spectral_function (lampara), lamost_spectral_function (ciencia), Fading
+  lamost.py                          descarga/cacheo de espectros LAMOST y sorteo de un tramo
   noise.py                           add_realistic_noise, add_plate_edge, Position
   labels.py                          formateadores yolov11, LabelClass, LabelFormat
   geometry.py                        cajas envolventes y camino OBB (ObservationLimit)
@@ -112,6 +113,29 @@ hay que correr esto una vez de antemano, con internet, para que quede cacheado:
 ```bash
 uv run python3 -c "import tensorflow_datasets as tfds; tfds.load('emnist/letters', split='train')"
 ```
+
+### Dataset LAMOST (espectro de ciencia)
+
+El espectro de **ciencia** sale de un tramo de un espectro estelar real de LAMOST DR12 LRS
+(`lamost.py`, `lamost_spectral_function`); la lámpara sigue siendo `spectral_function`. Los
+datos (99.998 espectros, uint8, 240 MB) están en Hugging Face,
+`Sansanto/gasp-lamost-dr12-lrs`, y se bajan con `keras.utils.get_file` la primera vez que se
+dibuja una observación: quedan en `~/.keras/datasets/gasp_lamost/`. En memoria ocupan
+~390 MB por proceso.
+
+La descarga está **fijada al tag `100k-1` y verificada por sha256**: con la misma semilla
+tiene que salir el mismo espectro, así que no se sigue a `main` del dataset. Para pasar a
+otra versión, cambiar `_REVISION` y `_SHA256` juntos — y eso cambia las imágenes generadas.
+
+A diferencia de EMNIST, esta descarga ocurre **siempre** (toda placa tiene ciencia). En un
+entorno sin internet, cachearla antes:
+
+```bash
+uv run python3 -c "from gsssp import load_lamost_spectra; load_lamost_spectra()"
+```
+
+Los trabajos publicados que usen estos datos (incluida la tesis) tienen que llevar el
+agradecimiento a LAMOST que figura en el README.
 
 ### Configuración de las corridas
 
