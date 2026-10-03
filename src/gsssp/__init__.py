@@ -7,8 +7,9 @@ listas para entrenar modelos de deteccion.
 # Dibujado de observaciones
 from .drawing import draw_observation
 
-# Espectros sinteticos
-from .spectra import Fading, planck_like, spectral_function
+# Espectros sinteticos y a partir de LAMOST
+from .spectra import Fading, lamost_spectral_function, planck_like, spectral_function
+from .lamost import load_lamost_spectra, sample_lamost_window
 
 # Ruido de escaneo y bordes de placa
 from .noise import Position, add_background_field, add_plate_edge, add_realistic_noise
@@ -50,7 +51,10 @@ __all__ = [
     "draw_observation",
     # espectros
     "Fading",
+    "lamost_spectral_function",
+    "load_lamost_spectra",
     "planck_like",
+    "sample_lamost_window",
     "spectral_function",
     # ruido
     "Position",

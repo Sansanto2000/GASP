@@ -4,7 +4,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from gsssp.labels import LabelClass
-from gsssp.spectra import spectral_function
+from gsssp.spectra import lamost_spectral_function, spectral_function
 
 def _rotar(corners, M):
     """Aplica una matriz afin 2x3 a un conjunto de puntos (x, y).
@@ -224,19 +224,13 @@ def draw_observation(
     partsOriginX = int(partsX.min())
     partsWidth = int(partsX.max() - partsX.min()) + 1
 
-    # Pintar espectro de ciencia
+    # Pintar espectro de ciencia, a partir de un tramo de un espectro real de LAMOST
     onlyObservation = np.zeros(img.shape[:2], dtype=np.uint8)
     ys, xs = np.where(maskParts["science"] == 255)
     vertical_noise_level = rng.uniform(0,0.05)
-    science_function = spectral_function(
+    science_function = lamost_spectral_function(
         width=partsWidth,
-        noise_level=255*rng.uniform(0, 0.01),
-        n_peaks=int(rng.integers(4, 11)),
         baseline=int(rng.integers(max(0, baseGrey-60), baseGrey+16)),
-        vertical_noise_level= vertical_noise_level,
-        peak_spread=rng.uniform(0.4, 2.6),
-        n_absorption_lines=int(rng.integers(0, 13)),
-        absorption_lines_spread=rng.uniform(0, 0.1),
         rng=rng,
         )
     _paint_part(onlyObservation, ys, xs, science_function, partsOriginX, baseGrey)
