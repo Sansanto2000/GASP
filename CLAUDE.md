@@ -37,17 +37,18 @@ Los imports son siempre **`gsssp.*`** (paquete instalado en modo editable), nunc
 
 ### Camino OBB (WIP)
 
-`geometry.py` tiene el trabajo a medio hacer hacia etiquetas OBB (4 esquinas) y componentes
-por clase (`observacion` / `science` / `lamp`). No es deuda accidental:
+`geometry.py` tiene el trabajo a medio hacer hacia etiquetas OBB (4 esquinas). No es deuda
+accidental:
 
-- `define_observations_limits()` calcula las esquinas de cada observación y el generador ya
-  lo llama, pero **el resultado todavía no se usa aguas abajo**: las observaciones se siguen
-  posicionando con el código viejo. Conectarlo es el próximo paso.
-- `define_observation_components_limits()` y `ObservationLimit.define_components_limits()`
-  son `pass`. **No hacen falta para las etiquetas de componente**: esas salen de los
+- `define_observations_limits()` calcula las esquinas de cada observación, pero
+  **`generar_placa` ya no lo llama**: las observaciones se siguen posicionando con el código
+  viejo, y el resultado de la llamada nunca se usaba, solo consumía sorteos del `rng`. Se
+  quitó (cambió las imágenes de cada semilla, no su distribución). Hoy lo usa solo
+  `src/test.py`. Conectarlo es el próximo paso, y al hacerlo vuelve a consumir sorteos del
+  `rng`.
+- Las etiquetas de componente (`science` / `lamp`) **no salen de acá**: salen de los
   `rectParts` de `draw_observation`, que son los mismos rectángulos que pintan las máscaras.
-  Este camino de `geometry.py` es la versión paralela, pensada para cuando el posicionamiento
-  pase a derivarse de `define_observations_limits()`.
+  Por eso `geometry.py` no tiene una versión paralela por componente.
 
 ### Convención de ángulo
 
