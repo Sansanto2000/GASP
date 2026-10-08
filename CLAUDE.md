@@ -297,11 +297,11 @@ Sin disclaimers ni notas de autoría automática en el texto.
 - **`ai-review`** en todo lo que el asistente cree o edite (issue nuevo, comentario, cuerpo
   editado): es la señal de "pendiente de revisión humana", y reemplaza a cualquier marcador
   tipo 🤖 dentro del texto.
-- **`usable-minima`**: marca lo necesario para una primera versión usable. **No
-  autoasignársela** — es una decisión de priorización, no algo que se infiera del bug.
-- Milestone **"Tesis V. Dome"**: agrupa un plan de trabajo completo, incluido el trabajo de
-  soporte, no solo lo de una persona. Asignarlo cuando el issue sea parte de ese plan.
-  (Ni esta label ni este milestone existen hoy en este repo; sí en PlateUNLP.)
+- **Solo en midusi/PlateUNLP:** la etiqueta **`usable-minima`** marca lo necesario para una
+  primera versión usable; **no autoasignársela**, es una decisión de priorización, no algo
+  que se infiera del bug. El milestone **"Tesis V. Dome"** agrupa un plan de trabajo
+  completo, incluido el trabajo de soporte, no solo lo de una persona; asignarlo cuando el
+  issue sea parte de ese plan.
 
 ### Gotcha de herramienta
 
