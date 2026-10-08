@@ -30,9 +30,7 @@ from .labels import (
 
 # Geometria (camino OBB)
 from .geometry import (
-    ComponentLimit,
     ObservationLimit,
-    define_observation_components_limits,
     define_observations_limits,
     max_height_for_canvas,
     max_width_for_canvas,
@@ -72,9 +70,7 @@ __all__ = [
     "label_list_to_yolov11_aabb_format",
     "label_list_to_yolov11_obb_format",
     # geometria
-    "ComponentLimit",
     "ObservationLimit",
-    "define_observation_components_limits",
     "define_observations_limits",
     "max_height_for_canvas",
     "max_width_for_canvas",
