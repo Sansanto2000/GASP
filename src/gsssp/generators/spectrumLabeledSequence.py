@@ -8,7 +8,6 @@ import tensorflow as tf
 
 from gsssp.drawing import draw_observation
 from gsssp.geometry import (
-    define_observations_limits,
     max_height_for_canvas,
     max_width_for_canvas,
     rotated_aabb,
@@ -194,9 +193,6 @@ class SpectrumLabeledSequence(Sequence):
     # las observaciones para que el gradiente tambien las afecte a ellas.
     field_amplitude = rng.uniform(*self.field_amplitude_range)
     img = add_background_field(img, field_amplitude, rng=rng)
-
-    ### Definir limites de las observaciones ###
-    observations_limits = define_observations_limits(alto, ancho, rng)
 
     ### Observacion ###
     # Ancho de la observacion que varia en relacion al ancho total disponible.
