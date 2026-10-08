@@ -204,11 +204,11 @@ visible de `split_dota` en Ultralytics.
 Vale para cualquier Issue, siempre igual:
 
 1. **Rama propia**, nombrada `ID-XXX` con el número del Issue. Se trabaja ahí, nunca sobre
-   `main` ni `dev`.
+   `main`.
 2. **Vincular la rama al Issue** en GitHub, para que aparezca en la sección *Development*.
 3. Commits con el formato de abajo, cada uno esperando aprobación.
 4. Cuando están todos los commits, **crear el PR**. El merge lo ejecuta una persona,
-   contra `dev` y **con rebase**.
+   contra `main` y **con rebase**.
 
 ## Mensajes de commit
 
@@ -296,8 +296,7 @@ Sin disclaimers ni notas de autoría automática en el texto.
 
 - **`ai-review`** en todo lo que el asistente cree o edite (issue nuevo, comentario, cuerpo
   editado): es la señal de "pendiente de revisión humana", y reemplaza a cualquier marcador
-  tipo 🤖 dentro del texto. **Todavía no existe en este repo**, hay que crearla antes del
-  primer uso.
+  tipo 🤖 dentro del texto.
 - **`usable-minima`**: marca lo necesario para una primera versión usable. **No
   autoasignársela** — es una decisión de priorización, no algo que se infiera del bug.
 - Milestone **"Tesis V. Dome"**: agrupa un plan de trabajo completo, incluido el trabajo de
