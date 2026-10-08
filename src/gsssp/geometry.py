@@ -62,25 +62,6 @@ def max_height_for_canvas(width:Number, angle_degrees:Number, alto:int, ancho:in
     limite_ancho = (ancho - width*c) / s if s > 0 else float("inf")
     return max(0.0, min(limite_alto, limite_ancho))
 
-class ComponentLimit:
-    """Clase que representa los limites de una componente de la observacion (lampara 1, lampara 2 o espectro de ciencia).
-    """
-    def __init__(self, type: str, angle: int, alto: int, ancho: int, x_center: int, y_center: int, x1: int, y1: int, x2: int, y2: int, x3: int, y3: int, x4: int, y4: int):
-        self.type = type
-        self.angle = angle
-        self.alto = alto
-        self.ancho = ancho
-        self.x_center = x_center
-        self.y_center = y_center
-        self.x1 = x1
-        self.y1 = y1
-        self.x2 = x2
-        self.y2 = y2
-        self.x3 = x3
-        self.y3 = y3
-        self.x4 = x4
-        self.y4 = y4
-
 class ObservationLimit:
     """Clase que representa los limites de una observacion dentro de una imagen.
     """
@@ -98,17 +79,7 @@ class ObservationLimit:
         self.y3 = y3
         self.x4 = x4
         self.y4 = y4
-        self.science = None
-        self.lamps = None
     
-    def define_components_limits(self):
-        """Define los limites de cada componente de la observacion (lampara 1, lampara 2 y espectro de ciencia) 
-        en base a los limites generales de la observacion.
-        """
-        self.science = None
-        self.lamps
-        pass
-        
     def __str__(self):
         return (
             f"ObservationLimit("
@@ -124,16 +95,11 @@ class ObservationLimit:
             f"x3={self.x3}, "
             f"y3={self.y3}, "
             f"x4={self.x4}, "
-            f"y4={self.y4}, "
-            f"science={len(self.science) if self.science else None}, "
-            f"lamps={len(self.lamps) if self.lamps else None}"
+            f"y4={self.y4})"
         )
         
     __repr__ = __str__
 
-def define_observation_components_limits(observation):
-    pass
-    
 def define_observations_limits(alto, ancho, rng, min_heigth=0.03, min_width=0.1):
     """Define una lista de detalles de observaciones que entran en una imagen en base al alto y ancho de un canvas.
 
