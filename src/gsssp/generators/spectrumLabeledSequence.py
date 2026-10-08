@@ -11,6 +11,7 @@ from gsssp.geometry import (
     define_observations_limits,
     max_height_for_canvas,
     max_width_for_canvas,
+    rotated_aabb,
 )
 from gsssp.handwriting import add_observation_annotations
 from gsssp.labels import LabelClass, LabelFormat, edges_of_labels_relxywh
@@ -219,8 +220,21 @@ class SpectrumLabeledSequence(Sequence):
       obs_heigth*self.distance_between_observations_range[0], 
       obs_heigth*self.distance_between_observations_range[1]
     )
-    # Cantidad de observaciones que entran en la imagen
-    max_observations = math.floor(alto*0.95/(obs_heigth+distanceBetweenObservations/2))
+    # Cantidad de observaciones que entran en la imagen. Segundo criterio: una pila de n
+    # observaciones inclinadas ocupa (n-1)*unit mas el alto de UNA caja inclinada, no el
+    # alto sin rotar. Sin reservarlo, la primera y la ultima asoman por arriba o por abajo
+    # del canvas y las esquinas OBB salen de [0, 1]. Se pide que entre la pila completa y no
+    # cada observacion: asi tambien entra cualquier subconjunto que sobreviva al filtro de
+    # posiciones de mas abajo. Una sola siempre entra (max_height_for_canvas lo garantiza).
+    # Se reservan 2 px: draw_observation trunca las esquinas a entero (np.int32) y las de
+    # una lampara pueden quedar hasta ~1 px mas afuera que las de la observacion, asi que
+    # una pila que justo llena el canvas sacaba esa esquina de [0, 1] por una fraccion.
+    _, alto_envolvente = rotated_aabb(obs_width, obs_heigth, angle)
+    unit = obs_heigth + distanceBetweenObservations # Espacio a considerar por observación
+    max_observations = min(
+      math.floor(alto*0.95/(obs_heigth+distanceBetweenObservations/2)),
+      max(1, math.floor((alto - alto_envolvente - 2)/unit) + 1),
+    )
     # Cuantas observaciones se dibujaran en una la imagen
     n_observations = min(max_observations, int(rng.integers(1, self.cant_observations_max + 1)))
 
@@ -228,7 +242,6 @@ class SpectrumLabeledSequence(Sequence):
     # Posiciones donde ser realizara el dibujo centradas en alto
     noise_horizontal = self.noise_horizontal # Irregularidad porcentual horizontal maxima
     noise_vertical = self.noise_vertical # Irregularidad porcentual veartical maxima
-    unit = obs_heigth + distanceBetweenObservations# Espacio a considerar por observación
     posiciones = []
     for i in range(n_observations):
       pos_y = (alto/2) - (n_observations/2)*unit + unit/2 + i*unit
