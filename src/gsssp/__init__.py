@@ -46,6 +46,9 @@ from .geometry import (
     rotated_aabb,
 )
 
+# Volcado de datasets YOLO a disco
+from .dataset import save_yolo_dataset
+
 # Depuracion
 from .debug import visualize_observations
 
@@ -90,6 +93,8 @@ __all__ = [
     "max_height_for_canvas",
     "max_width_for_canvas",
     "rotated_aabb",
+    # dataset en disco
+    "save_yolo_dataset",
     # depuracion
     "visualize_observations",
     # generadores
