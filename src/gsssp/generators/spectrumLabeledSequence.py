@@ -14,7 +14,7 @@ from gsssp.geometry import (
 from gsssp.handwriting import add_observation_annotations
 from gsssp.labels import LabelClass, LabelFormat, edges_of_labels_relxywh
 from gsssp.noise import Position, add_background_field, add_plate_edge, add_realistic_noise
-from gsssp.resize import ResizeMode, remap_observation, resize_plate
+from gsssp.resize import ResizeMode, remap_observation, resize_plate, validate_resize
 
 class OutputFormat(Enum):
   LIST = 0
@@ -73,18 +73,18 @@ class SpectrumLabeledSequence(Sequence):
   - resize_shape: dimensiones (ancho, alto) para las imagenes finales. Se ignora con
   ResizeMode.NONE.
   - resize_mode: como se lleva cada placa a resize_shape. ResizeMode.STRETCH (default)
-  escala cada eje por separado: usa la placa entera pero la deforma. Con placas apaisadas
-  la inclinacion aparente se amplifica y las cajas OBB dejan de ser rectangulos; las
-  etiquetas OBB de cada observacion y sus componentes pasan a ser rectangulos que contienen
-  a lo deformado, calculados juntos para que los componentes sigan dentro de la
-  observacion, y la de la observacion se acota para no salir del lienzo. ResizeMode.LETTERBOX
-  conserva la proporcion y completa con el gris de fondo de la placa, como hace Ultralytics
-  con imagenes reales; las etiquetas se re-normalizan al lienzo con relleno. Cuesta
-  resolucion en el eje corto de la placa: a 640x640 el lado corto de los componentes pasa
-  de una mediana de ~51 px a ~20 px, y se compensa con un resize_shape mayor.
-  ResizeMode.NONE no redimensiona: los lotes quedan de tamaño variable, asi que las
-  imagenes se devuelven como lista y no como arreglo apilado. Sirve para volcar a disco, no
-  para alimentar a Keras directamente.
+  escala cada eje por separado: usa la placa entera pero la deforma, y con placas apaisadas
+  la inclinacion aparente se amplifica. Las cajas AABB siguen siendo exactas, pero las OBB
+  quedarian como paralelogramos, asi que STRETCH con LabelFormat.OBB se rechaza al construir
+  (ValueError), aunque no haya inclinacion en un caso concreto: con OBB hay que usar
+  LETTERBOX o NONE. ResizeMode.LETTERBOX conserva la proporcion y completa con el gris de
+  fondo de la placa, como hace Ultralytics con imagenes reales; las etiquetas se
+  re-normalizan al lienzo con relleno. Cuesta resolucion en el eje corto de la placa: a
+  640x640 el lado corto de los componentes pasa de una mediana de ~51 px a ~20 px, y se
+  compensa con un resize_shape mayor. ResizeMode.NONE no redimensiona: los lotes quedan de
+  tamaño variable, asi que las imagenes se devuelven como lista y no como arreglo apilado.
+  Sirve para volcar a disco, no para alimentar a Keras directamente. Tambien se rechaza un
+  resize_mode que no sea un ResizeMode y un resize_shape invalido.
   - output_format: formato de datos de salida.
   - label_classes: clases a etiquetar, como tupla de LabelClass. Por defecto solo
   LabelClass.OBSERVATION. Sumando SCIENCE y LAMP se etiquetan tambien los componentes
@@ -177,6 +177,10 @@ class SpectrumLabeledSequence(Sequence):
     self.prob_glow_edge = prob_glow_edge
     self.prob_handwriting = prob_handwriting
     self.seed = seed
+
+    # Rechazar ahora las combinaciones invalidas (STRETCH con OBB entre ellas), y no en el
+    # primer lote.
+    validate_resize(self.resize_mode, self.resize_shape, self.label_format)
 
   # Number of batch in the Sequence.
   def __len__(self):
@@ -387,12 +391,9 @@ class SpectrumLabeledSequence(Sequence):
       img, affine = resize_plate(img, self.resize_shape, self.resize_mode)
       batch_x.append(np.repeat(img[:, :, None], 3, axis=2))
       
-      # Llevar las etiquetas a la imagen redimensionada. Se hace por observacion entera y antes
-      # de elegir clases: con letterbox cambia el lienzo respecto del que estan normalizadas, y
-      # con stretch la observacion y sus componentes se rectifican juntos para que sigan
-      # anidados, aunque despues solo se pidan algunas de las clases.
-      out_shape = (img.shape[1], img.shape[0])
-      labels = [remap_observation(l, affine, out_shape, self.resize_mode) for l in labels]
+      # Llevar las etiquetas a la imagen redimensionada: con letterbox cambia el lienzo respecto
+      # del que estan normalizadas.
+      labels = [remap_observation(l, affine) for l in labels]
 
       # Expandir cada observacion a las etiquetas pedidas: la observacion entera y/o
       # sus componentes. draw_observation ya devuelve ambas cosas.

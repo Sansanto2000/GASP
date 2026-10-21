@@ -29,7 +29,13 @@ from .labels import (
 )
 
 # Redimensionado de placas y reubicacion de etiquetas
-from .resize import ResizeMode, remap_observation, resize_plate
+from .resize import (
+    ResizeMode,
+    remap_observation,
+    resize_plate,
+    validate_crop_resize,
+    validate_resize,
+)
 
 # Geometria (camino OBB)
 from .geometry import (
@@ -76,6 +82,8 @@ __all__ = [
     "ResizeMode",
     "remap_observation",
     "resize_plate",
+    "validate_crop_resize",
+    "validate_resize",
     # geometria
     "ObservationLimit",
     "define_observations_limits",
