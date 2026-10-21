@@ -6,6 +6,9 @@ from numpy.typing import NDArray
 from gsssp.labels import LabelClass
 from gsssp.spectra import lamost_spectral_function, spectral_function
 
+# Desvio, en filas, del suavizado del ruido que forma las estrias de la banda de ciencia.
+_STRIPE_SIGMA = 1.5
+
 def _rotar(corners, M):
     """Aplica una matriz afin 2x3 a un conjunto de puntos (x, y).
 
@@ -52,7 +55,35 @@ def _label_from_corners(class_id, corners, img_width, img_height):
     }
 
 
-def _paint_part(canvas, ys, xs, spectrum_function, originX, baseGrey):
+def _stripe_gain(n_rows, amplitude, *, rng):
+    """Factor de ganancia por fila que simula las estrias de la banda de ciencia.
+
+    Los espectros reales tienen estrias paralelas a la dispersion: filas algo mas claras
+    u oscuras que recorren la banda de punta a punta. Se interpretan como variaciones de
+    exposicion por el guiado y el seeing mientras la estrella se desplaza a lo largo de
+    la rendija. Es ruido gaussiano suavizado a lo largo de las filas (`_STRIPE_SIGMA`,
+    ajustado a los recortes reales), de media 1 (no cambia el brillo de la banda) y desvio
+    `amplitude`.
+
+    Parametros:
+    - n_rows {int}: filas de la banda.
+    - amplitude {float}: desvio del factor, como fraccion del brillo (0.003 = 0.3 %).
+    - rng {np.random.Generator}: generador aleatorio.
+
+    Return:
+    - {NDArray[np.float64]}: factor de cada fila, de largo n_rows.
+    """
+    r = rng.normal(size=n_rows)
+    r = cv2.GaussianBlur(r[None, :], (0, 0), sigmaX=_STRIPE_SIGMA,
+                         borderType=cv2.BORDER_REFLECT)[0]
+    r -= r.mean()
+    std = r.std()
+    if n_rows < 3 or std == 0:
+        return np.ones(n_rows)
+    return 1 + amplitude * r / std
+
+
+def _paint_part(canvas, ys, xs, spectrum_function, originX, baseGrey, row_gain=None, *, rng=None):
     """Pinta de una sola vez todos los pixeles de una parte de la observacion.
 
     Cada columna toma la intensidad que le corresponde segun el espectro, con
@@ -65,10 +96,22 @@ def _paint_part(canvas, ys, xs, spectrum_function, originX, baseGrey):
     - spectrum_function {Callable}: funcion de intensidad devuelta por spectral_function.
     - originX {int}: coordenada X donde arranca el espectro.
     - baseGrey {int}: nivel de gris minimo a considerar.
+    - row_gain {NDArray}?: factor por pixel que multiplica la intensidad, de largo
+    len(ys). Si es None la parte queda uniforme en vertical.
+    - rng {np.random.Generator}?: obligatorio si hay row_gain, para el redondeo.
     """
     if len(xs) == 0:
         return
     intensities = spectrum_function(xs - originX)
+    if row_gain is not None:
+        # El espectro ya es entero y una estria mide una fraccion de nivel de gris.
+        # Multiplicar y truncar la deforma: toda fila con factor menor que 1 pierde un
+        # nivel entero y las de factor mayor no cambian, asi que la modulacion queda en
+        # ~0.5 % sin importar la amplitud pedida y la banda se oscurece ~0.5 %. Con
+        # redondeo estocastico cada pixel sube o baja un nivel con probabilidad
+        # proporcional a la fraccion, y el promedio de la fila conserva la estria.
+        modulada = intensities * row_gain
+        intensities = np.clip(np.floor(modulada + rng.random(len(modulada))), 0, 255)
     intensities = np.maximum(intensities, baseGrey).astype(np.uint8)
     canvas[ys, xs] = intensities
 
@@ -78,7 +121,8 @@ def draw_observation(
         opening:float, distanceBetweenParts:float,
         angle:int=0, inplace:bool=True, 
         baseGrey:int = 1, debug:bool=True,
-        *, rng:np.random.Generator = None) -> NDArray[np.uint8]:
+        *, stripe_amplitude_range:tuple[float, float] = (0.0, 0.0),
+        rng:np.random.Generator = None) -> NDArray[np.uint8]:
     """Funcion que recibe la informacion de una imagen en formato
     matricial y dibuja una observacion en la misma acorde a las 
     cordenadas especificadas.
@@ -109,6 +153,9 @@ def draw_observation(
     - baseGrey {int}?: nivel de gris minimo a considerar. Default 1.
     - debug {bool}?: al activar se pinta las cajas delimitadoras de la observacion
     generada sobre la imagen. Default False.
+    - stripe_amplitude_range {tuple[float, float]}?: rango del desvio de las estrias de
+    la banda de ciencia, como fraccion de su brillo (0.003 = 0.3 %). Se sortea un valor
+    por observacion. (0, 0) no agrega estrias y no consume sorteos del rng. Default (0, 0).
     - rng {np.random.Generator}?: generador aleatorio a usar. Si no se pasa se crea uno
     sin semilla. Recibirlo permite que el resultado sea reproducible y seguro entre hilos.
 
@@ -233,7 +280,14 @@ def draw_observation(
         baseline=int(rng.integers(max(0, baseGrey-60), baseGrey+16)),
         rng=rng,
         )
-    _paint_part(onlyObservation, ys, xs, science_function, partsOriginX, baseGrey)
+    # Estrias: un factor por fila de la banda, el mismo en todas sus columnas. Solo la
+    # ciencia las lleva.
+    row_gain = None
+    if stripe_amplitude_range[1] > 0 and len(ys) > 0:
+        amplitude = rng.uniform(*stripe_amplitude_range)
+        row_gain = _stripe_gain(ys.max() - ys.min() + 1, amplitude, rng=rng)[ys - ys.min()]
+    _paint_part(onlyObservation, ys, xs, science_function, partsOriginX, baseGrey,
+                row_gain, rng=rng)
 
     # Pintar lampara de comparación 1
     lamp_function = spectral_function(

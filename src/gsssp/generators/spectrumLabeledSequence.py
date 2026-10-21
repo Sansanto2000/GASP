@@ -49,6 +49,10 @@ class SpectrumLabeledSequence(Sequence):
   frecuencia que se aplica al canvas antes de dibujar las observaciones. Simula
   iluminacion despareja o vineteado del escaner. 0 no aplica ningun efecto.
   - band_intensity_range: rango de ruido de banda horizontal.
+  - stripe_amplitude_range: rango del desvio de las estrias de la banda de ciencia, como
+  fraccion de su brillo (0.003 = 0.3 %). Son filas algo mas claras u oscuras que recorren la
+  banda de punta a punta, paralelas a la dispersion, como en los espectros reales. Se sortea
+  un valor por observacion. (0, 0) no agrega estrias y deja la imagen identica a la de antes.
   - speck_count_range: rango de cantidad de manchas de polvo.
   - speck_size_range: rango de tamaño de las manchas de polvo.
   - blur_kernel_size_options: lista de opciones enteras para el tamaño del kernel de
@@ -118,6 +122,7 @@ class SpectrumLabeledSequence(Sequence):
       grain_std_range = (0.0, 8.0),
       field_amplitude_range = (0.0, 0.12),
       band_intensity_range = (0.0, 1.0),
+      stripe_amplitude_range = (0.002, 0.025),
       speck_count_range = (0, 10), 
       speck_size_range = (1,5), 
       blur_kernel_size_options = [1, 3],
@@ -159,6 +164,7 @@ class SpectrumLabeledSequence(Sequence):
     self.grain_std_range = grain_std_range
     self.field_amplitude_range = field_amplitude_range
     self.band_intensity_range = band_intensity_range
+    self.stripe_amplitude_range = stripe_amplitude_range
     self.speck_count_range = speck_count_range
     self.speck_size_range = speck_size_range
     self.blur_kernel_size_options = blur_kernel_size_options
@@ -293,6 +299,7 @@ class SpectrumLabeledSequence(Sequence):
         baseGrey=gray_value,
         inplace=True,
         debug=False,
+        stripe_amplitude_range=self.stripe_amplitude_range,
         rng=rng,
       )
       labels.append(label)
