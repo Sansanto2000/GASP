@@ -17,7 +17,7 @@ class Fading(Enum):
     PLANCK_BOTH_ENDS = 3
 
 def spectral_function(width:int, noise_level:float, n_peaks:int, baseline:int = 0, 
-                      vertical_noise_level:float=0.2, peak_spread:float=1.0, 
+                      vertical_noise_level:float=0.2, peak_spread:float=0.0077,
                       n_absorption_lines:int=0, 
                       absorption_lines_spread:float = 1.0,
                       fading:Fading = Fading.PLANCK,
@@ -31,8 +31,9 @@ def spectral_function(width:int, noise_level:float, n_peaks:int, baseline:int = 
     - baseline {int}: valor minimo.
     - vertical_noise_level {float}?: Amplitud del ruido base vertical (sobre 255).
     Default 0.2.
-    - peak_spread {float}?: multiplicador que afecta al ancho de los picos simulados. 
-    Default 1.0.
+    - peak_spread {float}?: multiplicador que afecta al ancho de los picos simulados.
+    Default 0.0077, el centro del rango (0.0004, 0.015) con el que draw_observation pinta
+    las lamparas: da lineas de un FWHM mediano de ~3 px en un espectro de 3000 px.
     - n_absorption_lines {int}?: cantidad de lineas de absorción a simular. Default 0.
     - absorption_lines_spread {float}?: multiplicador que afecta al ancho de los las 
     lineas de absorcion simuladas. Default 1.0.
