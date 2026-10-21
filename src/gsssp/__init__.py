@@ -28,6 +28,9 @@ from .labels import (
     label_list_to_yolov11_obb_format,
 )
 
+# Redimensionado de placas y reubicacion de etiquetas
+from .resize import ResizeMode, remap_observation, resize_plate
+
 # Geometria (camino OBB)
 from .geometry import (
     ObservationLimit,
@@ -69,6 +72,10 @@ __all__ = [
     "label_dict_to_yolov11_obb_format",
     "label_list_to_yolov11_aabb_format",
     "label_list_to_yolov11_obb_format",
+    # redimensionado
+    "ResizeMode",
+    "remap_observation",
+    "resize_plate",
     # geometria
     "ObservationLimit",
     "define_observations_limits",
