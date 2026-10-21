@@ -290,13 +290,16 @@ def draw_observation(
                 row_gain, rng=rng)
 
     # Pintar lampara de comparación 1
+    # peak_spread: con (0.0004, 0.015) el FWHM de las lineas queda en una mediana de ~3.6 px
+    # (obs. de 3000 px), contra 3.2 px de las lamparas reales. Con el rango anterior,
+    # (0.001, 0.04), era de 5.8 px y una de cada veinte lineas pasaba de 20 px.
     lamp_function = spectral_function(
         width=partsWidth,
         noise_level=255*0.01, 
         n_peaks=int(rng.integers(15, 151)),
         baseline=int(rng.integers(max(0, baseGrey-60), baseGrey+6)),
         vertical_noise_level=vertical_noise_level,
-        peak_spread=rng.uniform(0.001, 0.04),
+        peak_spread=rng.uniform(0.0004, 0.015),
         n_absorption_lines=0,
         rng=rng,
         )
