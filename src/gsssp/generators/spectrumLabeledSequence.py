@@ -3,7 +3,6 @@ import math
 from enum import Enum
 
 import numpy as np
-import cv2
 import tensorflow as tf
 
 from gsssp.drawing import draw_observation
@@ -15,6 +14,7 @@ from gsssp.geometry import (
 from gsssp.handwriting import add_observation_annotations
 from gsssp.labels import LabelClass, LabelFormat, edges_of_labels_relxywh
 from gsssp.noise import Position, add_background_field, add_plate_edge, add_realistic_noise
+from gsssp.resize import ResizeMode, remap_observation, resize_plate
 
 class OutputFormat(Enum):
   LIST = 0
@@ -70,7 +70,21 @@ class SpectrumLabeledSequence(Sequence):
   - prob_handwriting: probabilidad de que la placa lleve una letra manuscrita (EMNIST
   Letters) junto a cada una de sus observaciones, como distractor sin etiqueta.
   - batch_size: cantidad de elementos por lote.
-  - resize_shape: dimensiones (ancho, alto) para las imagenes finales.
+  - resize_shape: dimensiones (ancho, alto) para las imagenes finales. Se ignora con
+  ResizeMode.NONE.
+  - resize_mode: como se lleva cada placa a resize_shape. ResizeMode.STRETCH (default)
+  escala cada eje por separado: usa la placa entera pero la deforma. Con placas apaisadas
+  la inclinacion aparente se amplifica y las cajas OBB dejan de ser rectangulos; las
+  etiquetas OBB de cada observacion y sus componentes pasan a ser rectangulos que contienen
+  a lo deformado, calculados juntos para que los componentes sigan dentro de la
+  observacion, y la de la observacion se acota para no salir del lienzo. ResizeMode.LETTERBOX
+  conserva la proporcion y completa con el gris de fondo de la placa, como hace Ultralytics
+  con imagenes reales; las etiquetas se re-normalizan al lienzo con relleno. Cuesta
+  resolucion en el eje corto de la placa: a 640x640 el lado corto de los componentes pasa
+  de una mediana de ~51 px a ~20 px, y se compensa con un resize_shape mayor.
+  ResizeMode.NONE no redimensiona: los lotes quedan de tamaño variable, asi que las
+  imagenes se devuelven como lista y no como arreglo apilado. Sirve para volcar a disco, no
+  para alimentar a Keras directamente.
   - output_format: formato de datos de salida.
   - label_classes: clases a etiquetar, como tupla de LabelClass. Por defecto solo
   LabelClass.OBSERVATION. Sumando SCIENCE y LAMP se etiquetan tambien los componentes
@@ -104,6 +118,7 @@ class SpectrumLabeledSequence(Sequence):
       blur_kernel_size_options = [1, 3, 5, 7, 9, 11, 13, 15],
       batch_size = 128,
       resize_shape = (640, 640),
+      resize_mode:ResizeMode = ResizeMode.STRETCH,
       violin_line_include:bool = True,
       violin_intensity_range = (0.05, 0.35),
       violin_length_range = (0.05, 0.7),
@@ -144,6 +159,7 @@ class SpectrumLabeledSequence(Sequence):
     self.blur_kernel_size_options = blur_kernel_size_options
     self.batch_size = batch_size
     self.resize_shape = resize_shape
+    self.resize_mode = resize_mode
     self.violin_line_include = violin_line_include
     self.output_format = output_format
     self.label_format = label_format
@@ -366,11 +382,18 @@ class SpectrumLabeledSequence(Sequence):
     for i in range(self.batch_size):
       img, labels = self.generar_placa(rng)
 
-      # Redimensionar imagen y recien ahi expandir a tres canales, que es lo que esperan
-      # los modelos de deteccion con backbone preentrenado.
-      img = cv2.resize(img, (self.resize_shape[0], self.resize_shape[1]))
+      # Redimensionar imagen segun resize_mode y recien ahi expandir a tres canales, que es
+      # lo que esperan los modelos de deteccion con backbone preentrenado.
+      img, affine = resize_plate(img, self.resize_shape, self.resize_mode)
       batch_x.append(np.repeat(img[:, :, None], 3, axis=2))
       
+      # Llevar las etiquetas a la imagen redimensionada. Se hace por observacion entera y antes
+      # de elegir clases: con letterbox cambia el lienzo respecto del que estan normalizadas, y
+      # con stretch la observacion y sus componentes se rectifican juntos para que sigan
+      # anidados, aunque despues solo se pidan algunas de las clases.
+      out_shape = (img.shape[1], img.shape[0])
+      labels = [remap_observation(l, affine, out_shape, self.resize_mode) for l in labels]
+
       # Expandir cada observacion a las etiquetas pedidas: la observacion entera y/o
       # sus componentes. draw_observation ya devuelve ambas cosas.
       pedidas = {c.value for c in self.label_classes}
@@ -401,8 +424,9 @@ class SpectrumLabeledSequence(Sequence):
       })
 
     ### Fomato de salida final ###
-    # Imagenes
-    samples = np.array(batch_x)
+    # Imagenes. Sin redimensionar, las placas tienen distinto tamaño y no se pueden apilar
+    # en un arreglo: se devuelve la lista tal cual, igual que ObservationCropSequence.
+    samples = batch_x if self.resize_mode is ResizeMode.NONE else np.array(batch_x)
     # Etiquetas
     boxes_batch = [item["boxes"] for item in batch_y]
     classes_batch = [item["classes"] for item in batch_y]
