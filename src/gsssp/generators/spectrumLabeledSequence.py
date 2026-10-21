@@ -85,7 +85,10 @@ class SpectrumLabeledSequence(Sequence):
   tamaño variable, asi que las imagenes se devuelven como lista y no como arreglo apilado.
   Sirve para volcar a disco, no para alimentar a Keras directamente. Tambien se rechaza un
   resize_mode que no sea un ResizeMode y un resize_shape invalido.
-  - output_format: formato de datos de salida.
+  - output_format: formato de datos de salida. OutputFormat.LIST (default) devuelve un
+  unico tensor ragged (lote, None, None) con una fila `[clase, *caja]` por etiqueta.
+  OutputFormat.DICT devuelve un dict con "boxes" (lote, None, valores por caja: 4 con AABB,
+  8 con OBB) y "classes" (lote, None).
   - label_classes: clases a etiquetar, como tupla de LabelClass. Por defecto solo
   LabelClass.OBSERVATION. Sumando SCIENCE y LAMP se etiquetan tambien los componentes
   de cada observacion: el espectro de ciencia y las dos lamparas de comparacion.
@@ -441,11 +444,13 @@ class SpectrumLabeledSequence(Sequence):
             combined.append(img_labels)
         targets = tf.ragged.constant(combined, dtype=tf.float32)
       case OutputFormat.DICT:
+        # La dimension interna sale del formato de etiqueta (4 o 8 valores por caja) y se
+        # declara siempre, para que `boxes` sea (lote, None, valores) tambien en un lote sin cajas.
         targets = {
             "boxes": tf.ragged.constant(
-              boxes_batch, 
-              ragged_rank=1, 
-              inner_shape=(4,), 
+              boxes_batch,
+              ragged_rank=1,
+              inner_shape=(self.label_format.values_per_box,),
               dtype=tf.float32
             ),
             "classes": tf.ragged.constant(classes_batch, dtype=tf.float32),
