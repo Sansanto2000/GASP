@@ -21,6 +21,7 @@ src/gsssp/
   lamost.py                          descarga/cacheo de espectros LAMOST y sorteo de un tramo
   noise.py                           add_realistic_noise, add_plate_edge, Position
   labels.py                          formateadores yolov11, LabelClass, LabelFormat
+  dataset.py                         save_yolo_dataset: volcado a disco de un dataset YOLO (images/, labels/, data.yaml)
   resize.py                          ResizeMode, resize_plate, remap_observation, validate_*: redimensionado final y su control
   geometry.py                        cajas envolventes y camino OBB (ObservationLimit)
   debug.py                           visualize_observations
@@ -185,23 +186,23 @@ agradecimiento a LAMOST que figura en el README.
 
 ### Configuración de las corridas
 
-Los parámetros que cambian por corrida viven en un `.env` en la raíz, no en el código:
-`GASP_OUTPUT_DIR` (obligatoria, sin ella el script corta), `GASP_BATCH_SIZE`,
-`GASP_BATCH_COUNT` y `GASP_BEGIN_NUM`. `.env.example` está commiteado y hace de
-documentación; `.env` está en `.gitignore`.
+La configuración de una corrida se pasa por **parámetro**, no por entorno. La lógica vive en
+`gsssp.save_yolo_dataset` (`dataset.py`): recibe la carpeta de salida, cantidad de lotes,
+tamaño de lote, `begin_num`, `seed`, `label_format`, `label_classes`, `resize_mode` y los rangos
+de alto y ancho, y reenvía el resto (`**generator_kwargs`) a `SpectrumLabeledSequence`. El script
+`generator_save_images_example.py` es sólo una CLI de `argparse` sobre esa función:
 
 ```bash
-cp .env.example .env      # y completar GASP_OUTPUT_DIR
-uv run generator_save_images_example.py
+uv run generator_save_images_example.py /ruta/al/dataset --label-format obb --label-classes science,lamp --seed 1
+uv run generator_save_images_example.py --help
 ```
 
-Lo que ya esté exportado en el entorno **pisa** al `.env`, así que se puede cambiar un valor
-puntual sin editar el archivo.
+Sus defaults difieren a propósito de los de la librería: `resize_mode` es `ResizeMode.NONE` y
+los lados de la placa salen de `(500, 1400)`.
 
-**El entorno lo leen los scripts de entrada, nunca la librería.** `src/gsssp/` no accede a
-`os.environ` en ningún lado y debe seguir así: recibe todo por parámetro y el script traduce
-las variables a esos parámetros. Es el mismo criterio que el `rng` explícito — la dependencia
-entra por argumento, no por estado global.
+**`src/gsssp/` no accede a `os.environ` ni a archivos `.env`**: recibe todo por parámetro. Es el
+mismo criterio que el `rng` explícito — la dependencia entra por argumento, no por estado global.
+Ya no hay `.env.example`; `.env` sigue en `.gitignore` por si hace falta para algo local.
 
 ## Formatos de etiquetas
 
@@ -367,9 +368,8 @@ cualquier `gh api -X PATCH` que lea de un archivo, porque no falla si sale mal.
 
 Rutas y artefactos locales que se filtran fácil:
 
-- Valores de corrida en `.env`. Ya está en `.gitignore`, así que el riesgo no es commitearlo
-  sino **mover un valor de vuelta al código** para probar algo. Si hace falta un parámetro
-  nuevo, va al `.env` y al `.env.example`, no hardcodeado en el script.
+- Rutas y valores de una corrida puntual hardcodeados en el script de ejemplo. Si hace falta un
+  parámetro nuevo, va a `save_yolo_dataset` y a la CLI del script, no como constante.
 - Bloques de kwargs comentados en los scripts de ejemplo, dejados de una prueba.
 - Imágenes de debug generadas por el pipeline.
 

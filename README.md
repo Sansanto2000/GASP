@@ -82,4 +82,45 @@ En `generators\spectrumLabeledSequence` se encuentra un generador compatible con
 uv run generator_save_images_example.py
 ```
 
+### Dataset YOLO en disco (AABB u OBB)
+
+`generator_save_images_example.py` vuelca a una carpeta un dataset en formato YOLO: `images/`,
+`labels/` y un `data.yaml`. Formato de etiquetas, clases y semilla se pasan por línea de
+comandos. Por ejemplo, un dataset OBB de componentes para preentrenar un detector de
+Ultralytics:
+
+```
+uv run generator_save_images_example.py /ruta/a/tu/dataset --label-format obb --label-classes science,lamp
+```
+
+La misma función se puede llamar desde código, con control sobre todo el generador:
+
+```python
+from gsssp import LabelClass, LabelFormat, save_yolo_dataset
+
+save_yolo_dataset(
+    "/ruta/a/tu/dataset",
+    batch_count=100,
+    label_format=LabelFormat.OBB,
+    label_classes=(LabelClass.SCIENCE, LabelClass.LAMP),
+    seed=1,
+    prob_edge=0.0,  # el resto de los parámetros va a SpectrumLabeledSequence
+)
+```
+
+- `--label-format`: `aabb` (default) u `obb`. El formato y el formateador de texto salen de la
+  misma opción, así que no pueden quedar desincronizados.
+- `--label-classes`: `observacion`, `science` y/o `lamp`, separadas por coma. Los índices son
+  fijos (0, 1, 2) y no se compactan.
+- `--resize-mode`: `none` (default), `stretch` o `letterbox`. Con `none` las placas salen a su
+  tamaño original y es Ultralytics quien las ajusta a `imgsz` al entrenar. `stretch` con `obb`
+  se rechaza: estirar deformaría las cajas inclinadas.
+- `--seed`, `--begin-num`, `--batch-size`, `--batch-count`: la semilla permite generar bloques
+  independientes y `--begin-num` ampliar un dataset sin pisarlo. El `data.yaml` apunta `train` y
+  `val` a las mismas imágenes; para validar de verdad, generar otro bloque con otra semilla en
+  otra carpeta y cambiar `val`.
+- El `data.yaml` declara siempre las tres clases: Ultralytics exige que los índices de las
+  etiquetas sean menores que la cantidad de nombres, así que con sólo `science` y `lamp`
+  (índices 1 y 2) rechaza el dataset.
+
 Toda la herramienta es **importable como una libreria**.
