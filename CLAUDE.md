@@ -21,6 +21,7 @@ src/gsssp/
   lamost.py                          descarga/cacheo de espectros LAMOST y sorteo de un tramo
   noise.py                           add_realistic_noise, add_plate_edge, Position
   labels.py                          formateadores yolov11, LabelClass, LabelFormat
+  resize.py                          ResizeMode, resize_plate, remap_observation: redimensionado final
   geometry.py                        cajas envolventes y camino OBB (ObservationLimit)
   debug.py                           visualize_observations
   generators/
@@ -62,6 +63,45 @@ convenciones de OpenCV, que están documentadas así y ninguna es incorrecta.
 
 El AABB es simétrico ante el cambio de signo, así que las etiquetas `rel_xywh` no dependen
 de esta decisión — pero las OBB sí.
+
+### Redimensionado final
+
+`SpectrumLabeledSequence` lleva cada placa a `resize_shape` según `resize_mode`
+(`ResizeMode`, en `resize.py`). `generar_placa` no participa: el modo no consume sorteos del
+`rng`, así que no cambia la semilla ni la reproducibilidad.
+
+| modo | imagen | etiquetas |
+|---|---|---|
+| `STRETCH` (default) | escala cada eje por separado | AABB sin cambio; OBB rectificada |
+| `LETTERBOX` | un solo factor y relleno centrado con el gris de fondo | se re-normalizan al lienzo con relleno |
+| `NONE` | sin redimensionar; el lote sale como lista, no apilado | sin cambio |
+
+`resize_plate` devuelve la imagen y una afín sobre coordenadas normalizadas (`x' = x·sx + ox`);
+`remap_observation` la aplica a la observación entera, con sus componentes. Es un solo camino
+para AABB y OBB.
+
+- **`STRETCH` deja la imagen cizallada**: con placas apaisadas, un rectángulo rotado pasa a
+  ser un paralelogramo y la inclinación aparente se amplifica (±2° configurados llegan a
+  ~9°). La etiqueta lo reporta con fidelidad, pero el formato OBB no representa un
+  paralelogramo, así que `remap_observation` rectifica la observación **y sus componentes
+  juntos**, en un marco común (el del ancho de la observación): cada rectángulo es la
+  envolvente de su paralelogramo en ese marco, así que contiene al objeto y los componentes
+  quedan dentro de la observación por construcción. La de la observación se acota para no
+  salir de [0, 1] (10 de 393 observaciones a 640×640), porque Ultralytics descarta la placa
+  entera si una esquina sale, el mismo síntoma de #31.
+  - **No** rectificar cada etiqueta por separado: el cizallado corre los centroides de las
+    lámparas en sentidos opuestos y sus rectángulos sobresalen de la observación (309 de 393
+    observaciones, hasta 31 px; ~0.5% de los píxeles de la observación quedaban fuera de su
+    etiqueta). El dibujado no tiene la falla: partes y píxeles rotan con la misma `M`.
+  - **No** usar `minAreaRect` por etiqueta: sale de [0, 1] (15 etiquetas, hasta 37 px) y
+    tampoco garantiza el anidado.
+  - Costo: la etiqueta de la observación es algo más holgada (IoU mediana 0.982 a 640×640;
+    0.998 a 1280×640).
+- **`LETTERBOX` cuesta resolución**: a 640×640 el lado corto de los componentes pasa de una
+  mediana de ~51 px a ~20 px. Se compensa con un `resize_shape` mayor. El relleno es plano y
+  sin ruido, así que se nota el borde donde termina la placa.
+- Un `resize_shape` cercano a la proporción de la placa (p. ej. 1280×640) acerca `STRETCH` a
+  un escalado uniforme: casi no hay deformación que compensar y ninguna observación se acota.
 
 ### Convenciones de código
 
@@ -189,6 +229,9 @@ primero y reusa `generar_placa()`, así que comparten todos los parámetros de g
 En los recortes, **los componentes de observaciones vecinas quedan sin etiquetar a
 propósito**: funcionan como negativos difíciles. Es la misma idea que el umbral de área
 visible de `split_dota` en Ultralytics.
+
+`ObservationCropSequence` no usa `resize_mode`: lleva cada recorte a `crop_resize_shape`
+estirando (o lo deja en su tamaño con `None`).
 
 ---
 
