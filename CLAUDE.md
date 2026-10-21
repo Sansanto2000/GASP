@@ -211,8 +211,10 @@ entra por argumento, no por estado global.
 | OBB | `<class> <x1> <y1> ... <x4> <y4>` | 4 esquinas normalizadas. |
 
 Se elige con el parámetro `label_format` de `SpectrumLabeledSequence` (`LabelFormat.AABB`,
-el default, o `LabelFormat.OBB`). Cambia la cantidad de valores por caja en el lote: 4 u 8.
-Con OBB el redimensionado tiene que conservar la geometría (`LETTERBOX` o `NONE`): ver
+el default, o `LabelFormat.OBB`). Cambia la cantidad de valores por caja en el lote: 4 u 8
+(`LabelFormat.values_per_box`, el único lugar donde vive esa cifra). Con `OutputFormat.DICT`,
+`boxes` sale `(lote, None, 4)` o `(lote, None, 8)` en los dos generadores, también en un lote
+sin cajas. Con OBB el redimensionado tiene que conservar la geometría (`LETTERBOX` o `NONE`): ver
 "Redimensionado final".
 
 **El orden de las esquinas OBB no importa.** Yolo deriva la caja con `cv2.minAreaRect`, que
