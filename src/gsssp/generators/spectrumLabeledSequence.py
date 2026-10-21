@@ -51,8 +51,10 @@ class SpectrumLabeledSequence(Sequence):
   - band_intensity_range: rango de ruido de banda horizontal.
   - speck_count_range: rango de cantidad de manchas de polvo.
   - speck_size_range: rango de tamaño de las manchas de polvo.
-  - blur_kernel_size_options: lista de opciones enteras para el tamaño del kernel de 
-  desenfoque.
+  - blur_kernel_size_options: lista de opciones enteras para el tamaño del kernel de
+  desenfoque; se sortea una por placa y 1 equivale a no desenfocar. Default [1, 3]: con
+  kernels mayores el desenfoque borra el grano de la emulsion y la placa queda mas limpia
+  que un escaneo real.
   - scratch_intensity_range: rango de intensidad de las rayas finas de manipulacion.
   - scratch_length_range: rango porcentual de longitud de las rayas finas de
   manipulacion, relativo a la diagonal de la placa.
@@ -118,7 +120,7 @@ class SpectrumLabeledSequence(Sequence):
       band_intensity_range = (0.0, 1.0),
       speck_count_range = (0, 10), 
       speck_size_range = (1,5), 
-      blur_kernel_size_options = [1, 3, 5, 7, 9, 11, 13, 15],
+      blur_kernel_size_options = [1, 3],
       batch_size = 128,
       resize_shape = (640, 640),
       resize_mode:ResizeMode = ResizeMode.STRETCH,
