@@ -13,6 +13,20 @@ class LabelClass(Enum):
     SCIENCE = 1
     LAMP = 2
 
+    @property
+    def yolo_name(self) -> str:
+        """Nombre de la clase en el `names` de un data.yaml de Yolo.
+
+        Return:
+        - {str}: "observacion", "science" o "lamp". Una clase nueva sin entrada aca falla
+        con KeyError en vez de quedar sin nombre en el data.yaml.
+        """
+        return {
+            LabelClass.OBSERVATION: "observacion",
+            LabelClass.SCIENCE: "science",
+            LabelClass.LAMP: "lamp",
+        }[self]
+
 
 class LabelFormat(Enum):
     """Esquema de etiqueta a producir.
