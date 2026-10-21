@@ -30,10 +30,7 @@ def _label_from_corners(class_id, corners, img_width, img_height):
 
     Parametros:
     - class_id {int}: indice de la clase etiquetada.
-    - corners {NDArray}: 4 puntos (x, y) del rectangulo, en pixeles, en el orden de
-    `cv2.boxPoints`: los lados (p0, p3) y (p1, p2) son los de ancho y (p0, p1) y (p3, p2) los
-    de alto. Se conserva en `corners_norm`, y `resize.py` depende de eso para saber cual es
-    el ancho de la observacion sin importar cuanto se la incline o se la estire.
+    - corners {NDArray}: 4 puntos (x, y) del rectangulo, en pixeles.
     - img_width {int}: ancho de la imagen, para normalizar.
     - img_height {int}: alto de la imagen, para normalizar.
 

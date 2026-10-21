@@ -5,6 +5,7 @@ import tensorflow as tf
 
 from gsssp.labels import LabelClass, LabelFormat
 from gsssp.generators.spectrumLabeledSequence import OutputFormat, SpectrumLabeledSequence
+from gsssp.resize import ResizeMode, validate_crop_resize
 
 
 class ObservationCropSequence(SpectrumLabeledSequence):
@@ -36,6 +37,9 @@ class ObservationCropSequence(SpectrumLabeledSequence):
   None para devolver los recortes en su tamaño original. Con None los recortes tienen
   distinto tamaño entre si, asi que el lote se devuelve como lista y no como arreglo
   apilado: sirve para volcar a disco, no para alimentar un modelo directamente.
+  Con LabelFormat.OBB se rechaza al construir un tamaño fijo (ValueError): el estirado
+  deforma los componentes en paralelogramos y las etiquetas OBB dejan de ser rectangulos.
+  Con OBB hay que usar None, o AABB.
   Default (320, 320).
   - label_classes: por defecto las dos clases de componente, que es lo que este
   generador esta pensado para etiquetar.
@@ -48,9 +52,12 @@ class ObservationCropSequence(SpectrumLabeledSequence):
       label_classes = (LabelClass.SCIENCE, LabelClass.LAMP),
       **kwargs
     ):
-    super().__init__(label_classes=label_classes, **kwargs)
+    # Este generador recorta de la placa entera y recien despues lleva el recorte a
+    # crop_resize_shape: no redimensiona la placa, asi que no usa resize_mode.
+    super().__init__(label_classes=label_classes, resize_mode=ResizeMode.NONE, **kwargs)
     self.crop_margin_range = crop_margin_range
     self.crop_resize_shape = crop_resize_shape
+    validate_crop_resize(self.crop_resize_shape, self.label_format)
 
   def _recortar(self, img, label, rng):
     """Recorta una observacion de la placa y reubica las etiquetas de sus componentes.
