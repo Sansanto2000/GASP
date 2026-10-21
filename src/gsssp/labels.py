@@ -23,6 +23,19 @@ class LabelFormat(Enum):
     AABB = 0
     OBB = 1
 
+    @property
+    def values_per_box(self) -> int:
+        """Cantidad de valores que ocupa una caja, sin contar la clase.
+
+        Unico lugar donde vive esa cifra: el generador la usa para declarar la forma de
+        `boxes` en la salida DICT. Un formato nuevo sin entrada aca falla con KeyError en
+        vez de heredar en silencio el tamaño de otro.
+
+        Return:
+        - {int}: 4 para AABB (centro y tamaño), 8 para OBB (las 4 esquinas).
+        """
+        return {LabelFormat.AABB: 4, LabelFormat.OBB: 8}[self]
+
 
 def _clase(class_id) -> int:
     """Normaliza el indice de clase a entero.

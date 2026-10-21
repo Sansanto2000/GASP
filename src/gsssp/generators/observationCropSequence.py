@@ -166,8 +166,14 @@ class ObservationCropSequence(SpectrumLabeledSequence):
             combined.append([[cls, *box] for cls, box in zip(classes, boxes)])
         targets = tf.ragged.constant(combined, dtype=tf.float32)
       case OutputFormat.DICT:
+        # Misma forma que en SpectrumLabeledSequence: (lote, None, valores por caja).
         targets = {
-            "boxes": tf.ragged.constant(boxes_batch, dtype=tf.float32),
+            "boxes": tf.ragged.constant(
+              boxes_batch,
+              ragged_rank=1,
+              inner_shape=(self.label_format.values_per_box,),
+              dtype=tf.float32
+            ),
             "classes": tf.ragged.constant(classes_batch, dtype=tf.float32),
         }
     return samples, targets
