@@ -1,84 +1,61 @@
 '''
-Docstring for generator_use_example
-Se crea un lote de imagenes con el generador SpectrumLabeledSequence 
-compatible con Tensorflow.
+Vuelca a una carpeta un dataset en formato YOLO (imagenes, etiquetas AABB u OBB y data.yaml)
+generado con SpectrumLabeledSequence. La configuracion se pasa por linea de comandos;
+`uv run generator_save_images_example.py --help` lista las opciones. Para mas control sobre
+el generador, usar gsssp.save_yolo_dataset desde codigo.
 '''
 
-import os
-import sys
-from pathlib import Path
-import cv2
-from dotenv import load_dotenv
-from tqdm import tqdm
-from gsssp.labels import label_list_to_yolov11_aabb_format
-import numpy as np
-from gsssp.generators.spectrumLabeledSequence import SpectrumLabeledSequence
+import argparse
 
-### Configuracion de la corrida ###
-# Las variables las lee este script, no la libreria: gsssp recibe todo por parametro.
-# Se apunta al .env que esta al lado de este archivo, no al del directorio actual, para
-# que la corrida no dependa de desde donde se invoque. Lo que ya este en el entorno tiene
-# prioridad sobre el .env, asi se puede pisar un valor puntual sin editar el archivo.
-load_dotenv(Path(__file__).with_name(".env"))
+from gsssp import LabelClass, LabelFormat, ResizeMode, save_yolo_dataset
 
-DESTINY = os.getenv("GASP_OUTPUT_DIR")
-if not DESTINY:
-    sys.exit(
-        "Falta la variable GASP_OUTPUT_DIR.\n"
-        "Copiar el archivo de ejemplo y completar la ruta de salida:\n"
-        "    cp .env.example .env"
-    )
+CLASSES = {c.yolo_name: c for c in LabelClass}
 
-BATCHT_SIZE = int(os.getenv("GASP_BATCH_SIZE", "32"))
-BATCHT_CANT = int(os.getenv("GASP_BATCH_COUNT", "3000"))
-BEGIN_NUM = int(os.getenv("GASP_BEGIN_NUM", "0"))
 
-spectrum_gen = SpectrumLabeledSequence(
-    height_range=(500,2000),
-    width_range=(500,2000),
-    batch_size=BATCHT_SIZE, 
-    resize_shape=(640,640)
+def parse_classes(text):
+    names = [n.strip().lower() for n in text.split(",")]
+    unknown = [n for n in names if n not in CLASSES]
+    if unknown:
+        raise argparse.ArgumentTypeError(
+            f"clases desconocidas: {', '.join(map(repr, unknown))}. Opciones: {', '.join(CLASSES)}."
+        )
+    return tuple(dict.fromkeys(CLASSES[n] for n in names))
+
+
+parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+parser.add_argument("output_dir", help="carpeta de salida; se crean images/, labels/ y data.yaml")
+parser.add_argument("--batch-size", type=int, default=32, help="imagenes por lote (default 32)")
+parser.add_argument(
+    "--batch-count", type=int, default=3000,
+    help="lotes a generar; el total es batch-size * batch-count (default 3000)",
 )
+parser.add_argument(
+    "--begin-num", type=int, default=0,
+    help="numero desde el que arranca la numeracion, para ampliar un dataset sin pisarlo (default 0)",
+)
+parser.add_argument("--seed", type=int, default=0, help="semilla del generador (default 0)")
+parser.add_argument(
+    "--label-format", choices=[f.name.lower() for f in LabelFormat], default="aabb",
+    help="formato de las etiquetas (default aabb)",
+)
+parser.add_argument(
+    "--label-classes", type=parse_classes, default=(LabelClass.OBSERVATION,),
+    help=f"clases a etiquetar, separadas por coma: {', '.join(CLASSES)} (default observacion)",
+)
+parser.add_argument(
+    "--resize-mode", choices=[m.name.lower() for m in ResizeMode], default="none",
+    help="como se lleva cada placa a 640x640; stretch con obb se rechaza (default none)",
+)
+args = parser.parse_args()
 
-### Preparar la carpeta destino ###
-# Se crean antes del bucle: si falta alguna, cv2.imwrite devuelve False sin lanzar nada
-# y la corrida termina "bien" dejando etiquetas sin imagen.
-IMAGES_DIR = os.path.join(DESTINY, "images")
-LABELS_DIR = os.path.join(DESTINY, "labels")
-os.makedirs(IMAGES_DIR, exist_ok=True)
-os.makedirs(LABELS_DIR, exist_ok=True)
-
-### Guardar elementos de la cantidad de lotes indicados ###
-batch_cant = BATCHT_CANT
-i = BEGIN_NUM
-for batch_nro in tqdm(range(batch_cant)):
-    batch_x, batch_y = spectrum_gen[i]
-
-    """ Guardar cada imagen y sus etiquetas correspondientes """
-    for x, y in zip(batch_x, batch_y):
-
-        # Guardar imagen sintetica
-        filepath = os.path.join(IMAGES_DIR, f"{i}.jpg")
-        success = cv2.imwrite(filepath, x)
-
-        # Cortar en vez de avisar y seguir: si no se pudo escribir una, no se van a poder
-        # escribir las que faltan, y continuar deja el dataset descalzado.
-        if not success:
-            raise RuntimeError(
-                f"No se pudo guardar la imagen en {filepath}. Verificar ruta y permisos."
-            )
-
-        # Convertir etiquetas a formato Yolov11
-        y = y.numpy()
-        filtered = y[~np.all(y == 0, axis=1)]
-        lines = map(label_list_to_yolov11_aabb_format, filtered)
-
-        # Guardar etiquetas. Siempre se escribe el archivo, aunque quede vacio: Yolo lo
-        # interpreta como imagen de fondo, y mantener la correspondencia 1 a 1 con las
-        # imagenes permite verificar que no se perdio nada contando archivos.
-        filepath = os.path.join(LABELS_DIR, f"{i}.txt")
-        with open(filepath, "w") as f:
-            f.write("\n".join(lines))
-
-        # Incrementar contador
-        i += 1
+total = save_yolo_dataset(
+    args.output_dir,
+    batch_count=args.batch_count,
+    batch_size=args.batch_size,
+    begin_num=args.begin_num,
+    seed=args.seed,
+    label_format=LabelFormat[args.label_format.upper()],
+    label_classes=args.label_classes,
+    resize_mode=ResizeMode[args.resize_mode.upper()],
+)
+print(f"{total} imagenes en {args.output_dir}")
