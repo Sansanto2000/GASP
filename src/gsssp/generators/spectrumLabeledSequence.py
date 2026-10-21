@@ -39,6 +39,11 @@ class SpectrumLabeledSequence(Sequence):
   - distance_between_observations_range: rango porcentual del espacio vacio entre cada 
   observacion.
   - cant_observations_max: numero de observaciones maximo.
+  - aspect_ratio_range: rango de la proporcion ancho/alto de las observaciones. Se sortea
+  un valor por placa y el alto sale de dividir el ancho por ese valor, asi que la forma de
+  la observacion no depende de la de la placa. Default (6, 15), el rango de recortes reales
+  de observaciones (6.2 a 14.9 en 51 recortes). Al acotar el alto para que la caja inclinada
+  entre en el canvas, la proporcion final solo puede salir mayor a la sorteada.
   - noise_horizontal: porcentaje de desviacion horizontal para el centro de una observacion.
   - noise_vertical: porcentaje de desviacion horizontal para el centro de una observacion.
   - gaussian_std_range: rango de ruido gaussiano general par la imagen generada.
@@ -116,6 +121,7 @@ class SpectrumLabeledSequence(Sequence):
       distance_between_components_range = (0.001, 0.1),
       distance_between_observations_range = (0.05, 0.4), 
       cant_observations_max = 5,
+      aspect_ratio_range = (6, 15),
       noise_horizontal = 0.01, 
       noise_vertical = 0.01, 
       gaussian_std_range= (3.0, 8.0),
@@ -158,6 +164,7 @@ class SpectrumLabeledSequence(Sequence):
     self.distance_between_components_range =distance_between_components_range
     self.distance_between_observations_range = distance_between_observations_range
     self.cant_observations_max = cant_observations_max
+    self.aspect_ratio_range = aspect_ratio_range
     self.noise_horizontal = noise_horizontal
     self.noise_vertical = noise_vertical
     self.gaussian_std_range = gaussian_std_range
@@ -192,6 +199,11 @@ class SpectrumLabeledSequence(Sequence):
     # Rechazar ahora las combinaciones invalidas (STRETCH con OBB entre ellas), y no en el
     # primer lote.
     validate_resize(self.resize_mode, self.resize_shape, self.label_format)
+    # Con un minimo <= 0 el alto saldria infinito o negativo, y max(1, ...) lo taparia sin avisar.
+    if len(self.aspect_ratio_range) != 2 or not 0 < self.aspect_ratio_range[0] <= self.aspect_ratio_range[1]:
+      raise ValueError(
+        f"aspect_ratio_range debe ser (min, max) con 0 < min <= max, se recibio {self.aspect_ratio_range!r}."
+      )
 
   # Number of batch in the Sequence.
   def __len__(self):
@@ -228,13 +240,14 @@ class SpectrumLabeledSequence(Sequence):
     ### Observacion ###
     # Ancho de la observacion que varia en relacion al ancho total disponible.
     obs_width = int(rng.integers(int(ancho*0.4), int(ancho*0.95) + 1))
-    # Alto total de la observacion que varia en relacion al ancho de la misma.
-    obs_heigth = int(rng.integers(int(alto*0.1), int(alto*0.8) + 1))
     # Inclinacion de la observacion.
     angle = int(rng.integers(self.angle_range[0], self.angle_range[1] + 1))
     # Recortar ancho y alto para que la caja envolvente de la observacion inclinada entre
     # en el canvas. Si no, la etiqueta normalizada supera 1 y Yolo descarta la imagen entera.
     obs_width = max(1, min(obs_width, int(max_width_for_canvas(angle, alto, ancho))))
+    # Alto total de la observacion, derivado de su ancho (ya acotado) y no del alto de la
+    # placa: sorteados por separado, la proporcion dependia de la forma de la placa.
+    obs_heigth = int(obs_width / rng.uniform(*self.aspect_ratio_range))
     obs_heigth = max(1, min(obs_heigth, int(max_height_for_canvas(obs_width, angle, alto, ancho))))
     # Que tan anchas van a ser los espectros de lampara en relacion al espectro de ciencia
     openingLamp = rng.uniform(*self.opening_lamp_range)
