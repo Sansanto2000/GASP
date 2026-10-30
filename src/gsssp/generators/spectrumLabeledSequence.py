@@ -16,6 +16,11 @@ from gsssp.labels import LabelClass, LabelFormat, edges_of_labels_relxywh
 from gsssp.noise import Position, add_background_field, add_plate_edge, add_realistic_noise
 from gsssp.resize import ResizeMode, remap_observation, resize_plate, validate_resize
 
+# Fraccion minima del alto de la observacion que tiene que quedarle a la ciencia con los
+# maximos de opening_lamp_range y distance_between_components_range. El minimo medido en las
+# etiquetas reales de mu Cen es 0.085; los rangos por defecto dan 0.10.
+_MIN_SCIENCE_FRACTION = 0.05
+
 class OutputFormat(Enum):
   LIST = 0
   DICT = 1
@@ -35,7 +40,10 @@ class SpectrumLabeledSequence(Sequence):
   - opening_lamp_range: rango porcentual de que tan anchos seran los espectros de lampara en 
   relacion a los especros de ciencia.
   - distance_between_components_range: rango porcentual del espacio vacio entre cada 
-  componente de la observacion.
+  componente de la observacion. El alto de la observacion se reparte en lampara, hueco,
+  ciencia, hueco y lampara, asi que la ciencia ocupa 1 - 2*apertura - 2*distancia. Con los
+  maximos de este rango y del de opening_lamp_range no puede quedar por debajo de 0.05: si
+  baja, el sorteo puede dejar la ciencia sin altura, y se rechaza al construir (ValueError).
   - distance_between_observations_range: rango porcentual del espacio vacio entre cada 
   observacion.
   - cant_observations_max: numero de observaciones maximo.
@@ -203,6 +211,18 @@ class SpectrumLabeledSequence(Sequence):
     if len(self.aspect_ratio_range) != 2 or not 0 < self.aspect_ratio_range[0] <= self.aspect_ratio_range[1]:
       raise ValueError(
         f"aspect_ratio_range debe ser (min, max) con 0 < min <= max, se recibio {self.aspect_ratio_range!r}."
+      )
+    # La ciencia ocupa 1 - 2*apertura - 2*distancia del alto de la observacion. Con los maximos
+    # de ambos rangos tiene que conservar una altura minima: si no, un sorteo alto en los dos
+    # la deja en cero o negativa, y draw_observation la dibuja y la etiqueta igual, sin avisar.
+    min_science = 1 - 2*self.opening_lamp_range[1] - 2*self.distance_between_components_range[1]
+    if min_science < _MIN_SCIENCE_FRACTION:
+      raise ValueError(
+        f"opening_lamp_range={tuple(self.opening_lamp_range)} y distance_between_components_range="
+        f"{tuple(self.distance_between_components_range)} pueden dejar a la ciencia en {min_science:.3f} del alto "
+        f"de la observacion (1 - 2*apertura - 2*distancia con los maximos), por debajo del minimo "
+        f"{_MIN_SCIENCE_FRACTION}. Alternativas: bajar el maximo de opening_lamp_range o el de "
+        f"distance_between_components_range."
       )
 
   # Number of batch in the Sequence.
