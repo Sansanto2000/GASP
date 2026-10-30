@@ -244,6 +244,58 @@ visible de `split_dota` en Ultralytics.
 estirando (o lo deja en su tamaño con `None`). Con OBB solo admite `None` (ver "Redimensionado
 final").
 
+### Recortes delgados (mu Cen)
+
+Con los valores por defecto `ObservationCropSequence` no produce la geometría de los recortes de
+mu Cen (#46). Medido sobre las 63 etiquetas reales y 150 recortes generados (semilla 7):
+
+| | mu Cen real | por defecto |
+|---|---|---|
+| ancho/alto del recorte | 7.6 / 20.3 / 37.4 (3 medidos); 20–44 en los 7 peores | 5.7–16.3, **0 % ≥ 20** |
+| ciencia con el recorte a 640 px de ancho | 10.2 / 2.7 / 3.6 px | mediana 23.3, mín 6.4 |
+| lámpara / alto de la observación | mediana 0.41 | máx 0.35 |
+
+Para generarlos alcanza con parámetros que ya existen. Se **mezclan** con el dataset por defecto,
+no lo reemplazan: `aspect_ratio_range=(6, 15)` sale de recortes reales de otra geometría (#28) y sigue
+valiendo para el resto.
+
+```python
+ObservationCropSequence(
+    label_format=LabelFormat.OBB, crop_resize_shape=None,
+    aspect_ratio_range=(20, 55), width_range=(6000, 14000), height_range=(700, 1400),
+    opening_lamp_range=(0.30, 0.40), distance_between_components_range=(0.001, 0.01),
+    angle_range=(-1, 1), crop_margin_range=(0, 0.05),
+)
+```
+
+Da 84 % de recortes con relación ≥ 20, ciencia/observación de mediana 0.279 (real 0.283) y una
+ciencia de 4.4 px a 640 de ancho. Cuesta 1.8× por recorte (176 ms contra 97), porque las placas son
+más anchas.
+
+Dos recortes reales de mu Cen (los dos de los que se tenía la imagen completa):
+
+![Dos recortes reales de mu Cen, de relación 37.4 y 7.6.](assets/issues/mu_cen_reales.jpg)
+
+Cuatro recortes generados con la receta de arriba (`seed=7`, `batch_size=40`; de los 40 se tomaron los de
+relación más cercana a 20, 30, 40 y 50, que son los índices 39, 1, 22 y 38):
+
+![Cuatro recortes generados con la receta, de relación 20.9 a 52.9.](assets/issues/mu_cen_receta.jpg)
+
+- **`opening_lamp_range` alto necesita un `distance_between_components_range` bajo.** La ciencia ocupa
+  `1 - 2*apertura - 2*distancia` del alto de la observación y, con los máximos de los dos rangos, no
+  puede bajar de 0.05: el generador lo rechaza al construir (`ValueError`). Con `(0.30, 0.47)` y la
+  distancia por defecto daba `-0.14`, es decir una caja de ciencia con altura negativa.
+- **El ángulo sigue siendo entero.** Pasarlo a continuo se descartó: con rotación en el entrenamiento
+  (`degrees=3.0` en `DetectorsWithUltralitics`) el modelo ve la misma distribución de inclinaciones, y
+  cambiaría las imágenes de cada semilla.
+- **La apariencia no es idéntica.** Las figuras comparan geometría. En las dos reales la ciencia es más
+  tenue que en lo generado: media sobre el fondo de 29 (16.5 y 41.5) contra 81 en 40 recortes con la
+  receta, y 78 con los valores por defecto, así que no depende de la receta. Con dos ejemplos es un
+  indicio, no una medición.
+- **El generador no es toda la causa posible.** A `imgsz=640` la ciencia de estos recortes queda en
+  3–4 px y `degrees=3.0` inclina más de 0.9 alturas de observación al 57 % de las tiras 40:1 (en las
+  reales, ~10 %). Medir resolución y aumentación antes de atribuir toda la falla a los datos.
+
 ---
 
 # Git

@@ -28,6 +28,14 @@ class ObservationCropSequence(SpectrumLabeledSequence):
   y el modelo aprende a no confundirla con la propia. Es la misma idea que el umbral de
   area visible de `split_dota` en Ultralytics, que descarta lo que se ve poco.
 
+  Con los valores por defecto los recortes salen con relacion ancho/alto de 5.7 a 16 y no llegan a
+  la geometria de los de mu Cen (20 a 44, con la ciencia de ~3 px a 640 de ancho). Para generarlos,
+  y mezclarlos con el dataset por defecto en vez de reemplazarlo, alcanza con parametros que ya
+  existen: aspect_ratio_range=(20, 55), width_range=(6000, 14000), height_range=(700, 1400),
+  opening_lamp_range=(0.30, 0.40), distance_between_components_range=(0.001, 0.01),
+  angle_range=(-1, 1), crop_margin_range=(0, 0.05). Cuesta ~1.8x por recorte. Ver "Recortes
+  delgados (mu Cen)" en CLAUDE.md.
+
   Params, ademas de los de SpectrumLabeledSequence:
   - crop_margin_range: rango porcentual del margen que se agrega a cada lado del
   recorte, respecto del tamaño de la observacion. Se sortea un valor por lado. El margen
