@@ -58,11 +58,18 @@ class ObservationCropSequence(SpectrumLabeledSequence):
       crop_margin_range = (0.0, 0.10),
       crop_resize_shape = (320, 320),
       label_classes = (LabelClass.SCIENCE, LabelClass.LAMP),
+      resize_mode = ResizeMode.NONE,
       **kwargs
     ):
     # Este generador recorta de la placa entera y recien despues lleva el recorte a
-    # crop_resize_shape: no redimensiona la placa, asi que no usa resize_mode.
-    super().__init__(label_classes=label_classes, resize_mode=ResizeMode.NONE, **kwargs)
+    # crop_resize_shape: no redimensiona la placa, asi que no usa resize_mode. Se acepta
+    # el parametro solo para que `save_yolo_dataset` pueda construir ambos generadores igual.
+    if resize_mode is not ResizeMode.NONE:
+      raise ValueError(
+        "ObservationCropSequence no redimensiona la placa: resize_mode solo puede ser "
+        "ResizeMode.NONE. El tamaño del recorte se elige con crop_resize_shape."
+      )
+    super().__init__(label_classes=label_classes, resize_mode=resize_mode, **kwargs)
     self.crop_margin_range = crop_margin_range
     self.crop_resize_shape = crop_resize_shape
     validate_crop_resize(self.crop_resize_shape, self.label_format)

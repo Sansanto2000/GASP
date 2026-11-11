@@ -37,6 +37,7 @@ def save_yolo_dataset(
     height_range=(500, 1400),
     width_range=(500, 1400),
     progress=True,
+    sequence_class=SpectrumLabeledSequence,
     **generator_kwargs,
 ) -> int:
     """Genera placas y las vuelca a `output_dir` como un dataset en formato YOLO.
@@ -64,8 +65,11 @@ def save_yolo_dataset(
     cada placa sale a su tamaño original. `STRETCH` con OBB lo rechaza el generador.
     - height_range, width_range: rango del alto y el ancho de la placa en pixeles.
     - progress: mostrar la barra de progreso.
-    - **generator_kwargs: el resto de los parametros de `SpectrumLabeledSequence`
-    (`resize_shape`, rangos de ruido, `prob_edge`, etc.).
+    - sequence_class: generador a volcar. `SpectrumLabeledSequence` (default) escribe placas
+    enteras; `ObservationCropSequence` escribe un recorte por observacion, con sus componentes
+    etiquetados (con OBB, pasar `crop_resize_shape=None`).
+    - **generator_kwargs: el resto de los parametros del generador
+    (`resize_shape`, rangos de ruido, `prob_edge`, `crop_margin_range`, etc.).
 
     Return:
     - {int}: cantidad de imagenes escritas.
@@ -73,7 +77,7 @@ def save_yolo_dataset(
     # Falla ahora con un KeyError claro si el formato no tiene formateador.
     formatter = _FORMATTERS[label_format]
 
-    sequence = SpectrumLabeledSequence(
+    sequence = sequence_class(
         height_range=height_range,
         width_range=width_range,
         batch_size=batch_size,
