@@ -123,4 +123,52 @@ save_yolo_dataset(
   etiquetas sean menores que la cantidad de nombres, así que con sólo `science` y `lamp`
   (índices 1 y 2) rechaza el dataset.
 
+### Recortes de una observación y observaciones alargadas (tipo mu_Cen)
+
+`ObservationCropSequence` genera la placa igual que el otro generador pero devuelve un recorte
+por observación, con sus componentes (`science` y las dos `lamp`) etiquetados respecto del
+recorte. Se vuelca a disco con `sequence_class`; con OBB el recorte sale a su tamaño original
+(`crop_resize_shape=None`), porque estirarlo deformaría las cajas:
+
+```python
+from gsssp import LabelClass, LabelFormat, ObservationCropSequence, ResizeMode, save_yolo_dataset
+
+save_yolo_dataset(
+    "/ruta/a/tu/dataset",
+    batch_count=100,
+    label_format=LabelFormat.OBB,
+    label_classes=(LabelClass.SCIENCE, LabelClass.LAMP),
+    resize_mode=ResizeMode.NONE,
+    sequence_class=ObservationCropSequence,
+    crop_resize_shape=None,
+)
+```
+
+Las observaciones del proyecto mu Cen son mucho más alargadas que el resto (proporción ancho/alto
+de ~20:1, hasta 44:1, contra ~11:1) y con la ciencia muy fina. Los valores por defecto no las
+producen. La receta con parámetros que ya existen, con sus mediciones, está en `CLAUDE.md`, sección
+"Recortes delgados (mu Cen)":
+
+```python
+save_yolo_dataset(
+    "/ruta/a/tu/dataset_mucen",
+    batch_count=100,
+    label_format=LabelFormat.OBB,
+    label_classes=(LabelClass.SCIENCE, LabelClass.LAMP),
+    resize_mode=ResizeMode.NONE,
+    sequence_class=ObservationCropSequence,
+    crop_resize_shape=None,
+    aspect_ratio_range=(20, 55), width_range=(6000, 14000), height_range=(700, 1400),
+    opening_lamp_range=(0.30, 0.40), distance_between_components_range=(0.001, 0.01),
+    angle_range=(-1, 1), crop_margin_range=(0, 0.05),
+)
+```
+
+Se **mezclan** con los recortes por defecto, no los reemplazan. Cuestan ~1,8× por recorte porque las
+placas son más anchas.
+
+Para mezclar recortes comunes con recortes tipo mu_Cen en un solo dataset, en la proporción de
+los reales (63 de 637, el 9,9 %), usar el script `generate_synthetic` del repositorio
+`DetectorsWithUltralitics` con `--crops --mucen-fraction 0.099`, que aplica esta receta.
+
 Toda la herramienta es **importable como una libreria**.
